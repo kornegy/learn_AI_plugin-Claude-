@@ -5,8 +5,7 @@ the learner knows, plans learning paths, schedules reviews, and teaches Socratic
 writing the learner's solutions for them.
 
 > **Status: Phase 2 — Product Architecture done.** No code yet; Phase 3 (MVP) is next.
-> This folder is incubated inside this repository and is planned to move to its own public
-> repository (`git subtree split --prefix=learning-mentor`) before the first release.
+> History of Phases 1–2 was moved here from the incubator repository with `git subtree split`.
 
 ## Documents
 

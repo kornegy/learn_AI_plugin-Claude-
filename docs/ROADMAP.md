@@ -11,7 +11,7 @@
 | Coding strictness default | `balanced` assistance ladder; never the learner's full solution |
 | License | MIT |
 | Conversation language | auto (the learner's language) |
-| Repository | separate public repository; incubated in `learning-mentor/` until the owner creates it |
+| Repository | dedicated repository `kornegy/learn_AI_plugin-Claude-` (created by the owner 2026-11-01) |
 
 ## Overview
 
@@ -155,8 +155,8 @@ cuts, they move to v0.2.0 in this order: settings, research, reviews.*
 
 ## Phase 6 — Public release (→ v1.0.0)
 
-- [ ] Move to the dedicated public repository (`git subtree split --prefix=learning-mentor`),
-      after the owner creates it and confirms
+- [x] Move to the dedicated repository (done 2026-11-01 with `git subtree split`)
+- [ ] Make the repository public (owner's decision)
 - [ ] README, ARCHITECTURE, CONTRIBUTING, SECURITY, CHANGELOG, issue and PR templates,
       upgrade guide
 - [ ] Marketplace install documented: `claude plugin marketplace add <owner>/learning-mentor`
