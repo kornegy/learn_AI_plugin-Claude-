@@ -1,0 +1,11 @@
+{
+  "name": "learning-mentor",
+  "displayName": "Learning Mentor",
+  "version": "0.1.0",
+  "description": "A personal learning mentor: remembers what you know per topic, plans learning paths, schedules reviews and teaches Socratically without writing your solutions for you. Data stays local.",
+  "author": { "name": "kornegy", "url": "https://github.com/kornegy" },
+  "homepage": "https://github.com/kornegy/learn_AI_plugin-Claude-",
+  "repository": "https://github.com/kornegy/learn_AI_plugin-Claude-",
+  "license": "MIT",
+  "keywords": ["learning", "education", "tutor", "mentor", "socratic", "spaced-repetition", "memory"]
+}
