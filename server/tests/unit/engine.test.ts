@@ -199,6 +199,10 @@ describe('scheduler (ARCHITECTURE §7.1)', () => {
     expect(ratingFor(ev('2026-10-01', 'transfer', 'success'))).toBe(Rating.Easy);
   });
 
+  it('creates no card from a self-report alone', () => {
+    expect(computeReview([ev('2026-10-01', 'self_report', 'success', { reported_level: 4 })], [], 'standard', 'normal')).toBeNull();
+  });
+
   it('creates no card before the level reaches 3', () => {
     expect(computeReview([ev('2026-10-01', 'recall', 'success')], [], 'standard', 'normal')).toBeNull();
   });

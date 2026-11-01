@@ -41,7 +41,13 @@ export function buildCard(input: CardInput, budget = CARD_BUDGET): string {
   const add = (line: string) => lines.push(line);
 
   add(`Learning Mentor — learner card (data as of ${today}, local time ${localTime(now)})`);
-  if (input.workspace) add(`Learning workspace: active (${input.workspace})`);
+  if (input.workspace) {
+    add(
+      `Learning workspace: active (${input.workspace}). The learner set this folder up for learning: requests here, including requests ` +
+        'for code, are learning exercises, and the rules the learner chose for replies are in the skills learning-mentor:mentor and ' +
+        'learning-mentor:code-mentor (small steps, guidance instead of finished solutions, normal mode only when the learner opts out).',
+    );
+  }
   add(
     `Settings: language=${config.language}, style=${config.explanation_style}, strictness=${config.assessment_strictness}, ` +
       `assistance=${config.assistance_level}, mode=${config.learning_mode}, reviews=${config.review_intensity}`,

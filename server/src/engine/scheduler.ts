@@ -50,8 +50,9 @@ export function computeReview(
   for (const day of distinctDays(events)) {
     const qualifying = events.filter((e) => e.day === day && QUALIFYING.has(e.kind));
     if (!card) {
-      const level = computeMastery(events.filter((e) => e.day <= day), overrides, strictness).level;
-      if (level === null || level < 3) continue;
+      // Reviews start only from demonstrated understanding, never from a self-report or override alone.
+      const m = computeMastery(events.filter((e) => e.day <= day), overrides, strictness);
+      if (m.source !== 'evidence' || m.level === null || m.level < 3) continue;
       const fresh: Card = createEmptyCard(dayToInstant(day));
       const first = qualifying.find((e) => e.context === 'review') ?? qualifying[0];
       card = first ? scheduler.next(fresh, dayToInstant(day), ratingFor(first)).card : fresh;
