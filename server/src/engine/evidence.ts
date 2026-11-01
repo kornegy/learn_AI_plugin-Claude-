@@ -46,8 +46,14 @@ export function normalizeAll(events: EvidenceRecord[]): NormalizedEvidence[] {
   return out;
 }
 
+/** Instant of an ISO timestamp with offset (string comparison is wrong across DST changes). */
+export function instant(ts: string): number {
+  return Date.parse(ts);
+}
+
 export function byTime<T extends { ts: string; id: string }>(a: T, b: T): number {
-  if (a.ts !== b.ts) return a.ts < b.ts ? -1 : 1;
+  const d = instant(a.ts) - instant(b.ts);
+  if (d !== 0) return d;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 

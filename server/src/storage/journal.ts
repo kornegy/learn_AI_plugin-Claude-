@@ -49,7 +49,7 @@ export class Journal {
       });
     }
     // Files are monthly and ids are time-sortable; sort for a stable chronological order.
-    events.sort((a, b) => (a.ts === b.ts ? (a.id < b.id ? -1 : 1) : a.ts < b.ts ? -1 : 1));
+    events.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     return { events, badLines };
   }
 

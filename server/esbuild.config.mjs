@@ -11,6 +11,7 @@ const common = {
   format: 'esm',
   target: 'node20',
   legalComments: 'none',
+  minify: true,
   logLevel: 'info',
   define: { __MENTOR_VERSION__: JSON.stringify(pkg.version) },
   // Some dependencies use require(); give the ESM bundle a working require.

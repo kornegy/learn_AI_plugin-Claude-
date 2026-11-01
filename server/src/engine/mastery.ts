@@ -3,7 +3,7 @@
  * Pure and deterministic, so files can always be rebuilt from the journal.
  */
 import type { Level } from '../core/labels.js';
-import { byTime, distinctDays, normalizeAll, type EvidenceRecord, type NormalizedEvidence, type OverrideRecord } from './evidence.js';
+import { byTime, distinctDays, instant, normalizeAll, type EvidenceRecord, type NormalizedEvidence, type OverrideRecord } from './evidence.js';
 import { computeMisconceptions, hasOpenMisconception } from './misconceptions.js';
 
 export type Strictness = 'lenient' | 'standard' | 'strict';
@@ -84,7 +84,7 @@ export function computeMastery(evidence: EvidenceRecord[], overrides: OverrideRe
 
   // Manual override wins until newer assessable evidence arrives (§6.6).
   const lastOverride = [...overrides].sort(byTime).at(-1);
-  if (lastOverride && !events.some((e) => e.record.ts > lastOverride.ts)) {
+  if (lastOverride && !events.some((e) => instant(e.record.ts) > instant(lastOverride.ts))) {
     return { level: lastOverride.level, provisional: false, source: 'override', regressedOn: null };
   }
 

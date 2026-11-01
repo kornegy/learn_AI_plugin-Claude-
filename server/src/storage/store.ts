@@ -109,7 +109,13 @@ export class Store {
   async readDoc<S extends z.ZodType>(relPath: string, schema: S): Promise<LoadedDoc<z.infer<S>> | null> {
     const text = await readText(await this.guard.assertReadable(relPath));
     if (text === null) return null;
-    const doc = parseDoc(text, relPath);
+    let doc: MarkdownDoc;
+    try {
+      doc = parseDoc(text, relPath);
+    } catch (e) {
+      if (e instanceof MentorError) throw new MentorError(e.code, `${e.message} Run mentor_doctor with repair: true.`, e.details);
+      throw e;
+    }
     const fm = doc.frontmatter as { schema?: unknown };
     if (typeof fm?.schema === 'number' && fm.schema > DATA_SCHEMA) this.tooNew(relPath, fm.schema);
     const parsed = schema.safeParse(doc.frontmatter);
