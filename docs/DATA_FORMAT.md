@@ -312,6 +312,7 @@ final. Skipping requires `skip_reason`. Sections: `overview` (server) and `notes
 ```yaml
 schema: 1
 language: auto
+label_language: ru          # en | ru: language of level labels and headings in files (set by mentor_init)
 explanation_style: analogy-first
 assessment_strictness: standard
 review_intensity: normal
@@ -343,25 +344,28 @@ One JSON object per line:
 
 | `type` | `data` |
 |---|---|
-| `initialized` | root, plugin version |
-| `config_changed` | changed keys (old → new) |
-| `workspace_registered` / `workspace_removed` | path |
-| `topic_created` / `topic_updated` | changed fields (not section text) |
+| `initialized` | plugin version |
+| `config_changed` | `changed`: key → {from, to} |
+| `workspace_registered` | path |
+| `topic_created` / `topic_updated` | title, aliases, prerequisites (changed fields; not section text) |
 | `evidence_recorded` | evidence (ARCHITECTURE §6.1) |
 | `level_changed` | from, to, provisional, reason (`evidence`, `regression`, `override`, `self_report`) |
 | `override` | level, reason |
 | `misconception_changed` | id, from, to |
-| `review_updated` | rating, due, stability, difficulty |
-| `path_created` / `path_updated` | subject, added/removed topics |
-| `stage_changed` | topic, stage, from, to, override_reason? |
-| `profile_updated` | target, added/removed items |
-| `source_saved` | source id, url, tier |
-| `export` | destination, snapshot |
-| `delete` / `purge` | scope, target, counts |
-| `migration` | from schema, to schema, files |
-| `repair` | file, action |
+| `path_updated` | mode, `snapshot` (full subject path frontmatter) |
+| `topic_path_updated` | mode, `snapshot` (full topic path frontmatter) |
+| `stage_changed` | stage, from, to, override_reason, activated |
+| `profile_updated` | target (`profile`, `preferences`, `subject:<id>`), `snapshot` |
+| `source_saved` | id, url, tier, `snapshot` |
+| `export` | destination, snapshot, files |
+| `delete` / `purge` | scope, target, removed_events. A `delete` is also a tombstone: replay and doctor ignore earlier events of that scope |
+| `repair` | number of problems |
 
-Rules: lines ≤ 4 KB; `note` and `quote` ≤ 300 characters; unknown `type`s are ignored by older
+*(v0.1.0)* Non-topic documents are journaled as full `snapshot`s, so `mentor_doctor` can rebuild
+any structured file. Topics are rebuilt by replaying their evidence. Review state (FSRS) is not
+journaled: it is recomputed from evidence.
+
+Rules: lines ≤ 16 KB (snapshots); `note` and `quote` ≤ 300 characters; unknown `type`s are ignored by older
 readers; events are never edited, except removed by `purge`.
 
 ## 11. Compatibility checklist for contributors

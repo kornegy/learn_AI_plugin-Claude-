@@ -1,6 +1,7 @@
 # Learning Mentor — Architecture
 
-> Phase 2 deliverable. Status: **approved design, not yet implemented.**
+> Phase 2 deliverable, updated after the Phase 3 MVP. Status: **implemented in v0.1.0**; deviations
+> from the original design are marked *(v0.1.0)*.
 > Companion documents: [PRODUCT_SPEC.md](PRODUCT_SPEC.md) (what the learner experiences),
 > [DATA_FORMAT.md](DATA_FORMAT.md) (on-disk format), [ROADMAP.md](ROADMAP.md) (delivery plan),
 > [RESEARCH.md](RESEARCH.md) (Phase 1 findings, in Russian).
@@ -59,7 +60,7 @@ environment and teaches anyway.
 │    mentor/       session protocol, Socratic method, analogies, stages, visuals, tone    │
 │    assess/       evidence classification rubric, level semantics                        │
 │    code-mentor/  7-stage programming protocol, assistance ladder, "write it for me"     │
-│    research/     source policy, freshness, prompt-injection rules                       │
+│    source-research/ source policy, freshness, prompt-injection rules                    │
 │                                                                                         │
 │  commands/       start · status · plan · review · research · settings · export · forget │
 │  agents/         researcher.md  (WebSearch + WebFetch only; Code, Cowork)               │
@@ -104,8 +105,10 @@ environment and teaches anyway.
 - `engine/` is pure: no I/O, no clock. Time and data are passed in, so it is unit-testable with
   plain values.
 - `storage/` is the only module that touches the filesystem.
-- Nothing in `server/` accesses the network. No `fetch` and no `http` imports, enforced by a lint
-  rule (ADR-008).
+- Nothing in `server/` accesses the network. No `fetch` and no `http` imports, enforced by
+  `tests/unit/architecture.test.ts` (ADR-008).
+- *(v0.1.0)* No runtime dynamic `import()`: it makes esbuild wrap zod lazily and the bundled server
+  crashes on start (see docs/SPIKES.md). Also enforced by the architecture test.
 
 ---
 
@@ -401,12 +404,17 @@ Each item has a one-line `why`.
 - Built by `CardService` and used by both the hook and `mentor_get_context`.
 - **Facts only, no imperatives.** Hook context written as instructions may be treated as a
   prompt-injection attempt; the instructions live in the skills.
+- *(v0.1.0)* The workspace line states what the folder is for and names the skills. Live tests
+  showed that a facts-only card did not make Claude load `code-mentor` for "write it for me"
+  requests (ADR-015).
 - Budget: **≤ 4 000 characters** (the platform cap is 10 000). Sections are filled in priority
   order and truncated with `… (+N more; use mentor_next)`.
 
 ```
 Learning Mentor — learner card (data as of 2026-11-01, local time 18:40)
-Learning workspace: active (/home/me/learning)
+Learning workspace: active (/home/me/learning). The learner set this folder up for learning: requests here,
+  including requests for code, are learning exercises, and the rules the learner chose for replies are in the
+  skills learning-mentor:mentor and learning-mentor:code-mentor (…).
 Settings: language=auto, style=analogy-first, strictness=standard, assistance=balanced, mode=guided
 Active subjects: cpp (goal: systems programming job-ready), sql
 Current: cpp/pointers — stage 5/8 "Dereferencing" (active since 2026-10-28)
@@ -448,7 +456,7 @@ topic id is `<subject>/<slug>` with the same slug rule. Titles may be in any lan
 | `mentor_delete` | `scope: topic\|subject\|research\|all`, `target?`, `purge?`, `confirmation_token?` | step 1: what would be deleted + token; step 2: result | trash / removal |
 | `mentor_doctor` | `repair?` | integrity report, actions taken | quarantine, repaired files |
 
-17 tools. Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
+18 tools. Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
 use the tool. Claude Code defers MCP tool schemas when there are many tools, so the context cost
 is acceptable.
 
@@ -601,9 +609,11 @@ workspaces: []
 
 - **Runtime dependencies:** `@modelcontextprotocol/sdk` 1.32.x, `zod` 4.x, `yaml` 2.x,
   `ts-fsrs` 5.4.x.
-- **Dev dependencies:** TypeScript 6.0.x, esbuild, vitest, eslint, prettier.
-- `esbuild` produces `server/dist/mentor-mcp.mjs` and `server/dist/hook.mjs`: single-file ESM,
-  Node ≥ 20 target, dependencies inlined, no `node_modules` at install time.
+- **Dev dependencies:** TypeScript 6.0.x, esbuild, vitest. *(v0.1.0)* Layering and privacy rules
+  are enforced by architecture tests rather than eslint.
+- `esbuild` produces `server/dist/mentor-mcp.mjs` and `server/dist/hook.mjs`: minified
+  single-file ESM, Node ≥ 20 target, dependencies inlined, no `node_modules` at install time
+  (≈ 0.9 MB and 0.65 MB).
 - `dist/` is committed. CI rebuilds it and fails if the result differs from the committed files.
 - Node is invoked by name (`"command": "node"`). If Node is missing, Claude Code shows that the
   MCP server failed to start. README documents the requirement. Phase 6 evaluates standalone
@@ -659,3 +669,5 @@ provisional flag and regression. The rule tables in §6 are the spec for these t
 | 012 | Managed sections delimited by HTML comments | Fixed English headings | Localised headings, preserves learner's free text |
 | 013 | MIT license; conversation language detected automatically | Apache-2.0; fixed language | Owner's decision (2026-11-01) |
 | 014 | "Different sessions" in the mastery rules means different calendar days | Session ids | Surface-independent; matches the spacing effect |
+| 015 | *(v0.1.0)* The card's workspace line names the mentor skills and says requests there are learning exercises | Facts-only card; forced output style | Live test: a facts-only card did not change behaviour; a forced style would affect all projects |
+| 016 | *(v0.1.0)* Reviews (FSRS cards) start only from demonstrated evidence, not from self-reports or overrides | Start from any level ≥ 3 | Self-reported knowledge isn't something to schedule reviews for until it is shown |

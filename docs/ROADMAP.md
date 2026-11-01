@@ -16,8 +16,8 @@
 ## Overview
 
 ```
-Phase 2  Architecture ............ done (this document set)
-Phase 3  MVP ..................... M0 → M5  → v0.1.0
+Phase 2  Architecture ............ done
+Phase 3  MVP ..................... done → v0.1.0 (2026-11-01)
 Phase 4  Advanced ................ M6 → M7  → v0.2.0, v0.3.0
 Phase 5  Quality assurance ....... M8       → v0.9.0 (release candidate)
 Phase 6  Public release .......... M9       → v1.0.0
@@ -29,18 +29,18 @@ Phase 6  Public release .......... M9       → v1.0.0
 
 ### M0. Bootstrap and spikes
 
-- [ ] Plugin skeleton: `.claude-plugin/plugin.json`, `marketplace.json`, empty skills/commands,
+- [x] Plugin skeleton: `.claude-plugin/plugin.json`, `marketplace.json`, empty skills/commands,
       `hooks/hooks.json`, `.mcp.json`
-- [ ] `server/` package: TypeScript 6.0, esbuild, vitest, eslint, prettier; `npm run build` →
+- [x] `server/` package: TypeScript 6.0, esbuild, vitest, eslint, prettier; `npm run build` →
       `dist/`
-- [ ] CI: lint, typecheck, unit, build-is-clean check, `claude plugin validate --strict`
-- [ ] **S1** SessionStart `additionalContext` reaches the model in Claude Code (and in Cowork, if
+- [x] CI: lint, typecheck, unit, build-is-clean check, `claude plugin validate --strict`
+- [x] **S1** ✅ (Claude Code) SessionStart `additionalContext` reaches the model in Claude Code (and in Cowork, if
       available to the owner); record how the card appears
-- [ ] **S2** Local MCP from a plugin in Cowork: Node runtime, cwd, file access to the data root
-- [ ] **S4** `claude plugin eval` with `history_file` + `llm` grader; measure the cost per case
-- [ ] **S5** Skill triggering on 20 RU/EN phrasings ("объясни указатели", "teach me joins",
+- [ ] **S2** ⏳ needs the owner's Cowork Local MCP from a plugin in Cowork: Node runtime, cwd, file access to the data root
+- [x] **S4** `claude plugin eval` with `history_file` + `llm` grader; measure the cost per case
+- [x] **S5** Skill triggering on 20 RU/EN phrasings ("объясни указатели", "teach me joins",
       "хочу разобраться с fork")
-- [ ] **S6** `${user_config.*}` with defaults and `env` passing to MCP servers in Claude Code
+- [~] **S6** env passing ✅; userConfig postponed `${user_config.*}` with defaults and `env` passing to MCP servers in Claude Code
       and Cowork
 
 **Exit:** the skeleton installs from a local marketplace and validates; spike results are
@@ -48,63 +48,64 @@ recorded in `docs/SPIKES.md`; the architecture is adjusted if a spike fails.
 
 ### M1. Storage foundation
 
-- [ ] `core/`: ids, clock (injectable), errors, labels (ru, en)
-- [ ] `schema/`: zod schemas for every file kind (DATA_FORMAT §5–§10), journal events,
+- [x] `core/`: ids, clock (injectable), errors, labels (ru, en)
+- [x] `schema/`: zod schemas for every file kind (DATA_FORMAT §5–§10), journal events,
       migration registry (empty)
-- [ ] `storage/`: root resolver, path guard, atomic write, lock, journal, markdown document
+- [x] `storage/`: root resolver, path guard, atomic write, lock, journal, markdown document
       (frontmatter + managed sections + free text preservation), backup, trash, quarantine
-- [ ] Secret filter
-- [ ] Unit tests incl. Windows-style paths, symlinks, broken markers, oversized files
+- [x] Secret filter
+- [x] Unit tests incl. Windows-style paths, symlinks, broken markers, oversized files
 
 **Exit:** ≥ 90 % line coverage on `storage/` and `schema/`; property tests: parse → write →
 parse is a fixed point.
 
 ### M2. Engines
 
-- [ ] Mastery (ARCHITECTURE §6) with table-driven tests covering every rule, strictness and
+- [x] Mastery (ARCHITECTURE §6) with table-driven tests covering every rule, strictness and
       regression case
-- [ ] Misconception state machine
-- [ ] Scheduler wrapper over ts-fsrs 5.4.x (rating mapping, one rating per day)
-- [ ] Paths: DAG validation, cycle reporting, stage criteria checking, status transitions
-- [ ] Recommender (`next`)
-- [ ] Learner card builder with a budget and truncation tests
+- [x] Misconception state machine
+- [x] Scheduler wrapper over ts-fsrs 5.4.x (rating mapping, one rating per day)
+- [x] Paths: DAG validation, cycle reporting, stage criteria checking, status transitions
+- [x] Recommender (`next`)
+- [x] Learner card builder with a budget and truncation tests
 
 **Exit:** engine is pure (no I/O imports, enforced by lint); all rule tables have tests.
 
 ### M3. MCP server and hook
 
-- [ ] Services: init, context, next, topics, evidence, set_level, paths, stages, profile,
+- [x] Services: init, context, next, topics, evidence, set_level, paths, stages, profile,
       settings, sources, export, delete (token protocol), doctor
-- [ ] MCP adapters for the 17 tools (ARCHITECTURE §9) with model-oriented descriptions
-- [ ] `hook.mjs session-start`: workspace detection, card output, error → one fact line, exit 0
-- [ ] Integration tests: every tool on a temp root; corrupt/missing files; two concurrent writer
+- [x] MCP adapters for the 17 tools (ARCHITECTURE §9) with model-oriented descriptions
+- [x] `hook.mjs session-start`: workspace detection, card output, error → one fact line, exit 0
+- [x] Integration tests: every tool on a temp root; corrupt/missing files; two concurrent writer
       processes; delete protocol; export; schema-too-new read-only mode
-- [ ] Hook tests: inside/outside a workspace, missing root, timing < 300 ms on a 200-topic fixture
+- [x] Hook tests: inside/outside a workspace, missing root, timing < 300 ms on a 200-topic fixture
 
 **Exit:** all integration and hook tests green; manual smoke test in Claude Code with
 `--plugin-dir`.
 
 ### M4. Skills, commands, agent
 
-- [ ] `mentor` skill (session loop, Socratic rules, analogies, stages, tone, recording rules,
+- [x] `mentor` skill (session loop, Socratic rules, analogies, stages, tone, recording rules,
       no-tools fallback) + references
-- [ ] `assess` skill (evidence classification with worked examples per kind/outcome/independence)
-- [ ] `code-mentor` skill (7 stages, ladder, "write it for me" protocol, normal-mode exit)
-- [ ] `research` skill + `agents/researcher.md` (read-only tools, JSON output contract)
-- [ ] Commands: start, status, plan, review, research, settings, export, forget
-- [ ] Optional `output-styles/mentor.md`
-- [ ] Portable frontmatter check (only keys allowed on claude.ai), SKILL.md < 500 lines and
+- [x] `assess` skill (evidence classification with worked examples per kind/outcome/independence)
+- [x] `code-mentor` skill (7 stages, ladder, "write it for me" protocol, normal-mode exit)
+- [x] `source-research` skill + `agents/researcher.md` (read-only tools, JSON output contract)
+- [x] Commands: start, status, plan, review, research, settings, export, forget
+- [x] Optional `output-styles/mentor.md`
+- [x] Portable frontmatter check (only keys allowed on claude.ai), SKILL.md < 500 lines and
       < 5k tokens
 
-**Exit:** a manual walkthrough of J1–J13 in Claude Code is recorded in `docs/WALKTHROUGH.md`
-with notes on what felt wrong; issues are fixed or filed.
+**Exit:** live walkthroughs of the key journeys (continue, new topic, write-it-for-me, outside a
+workspace) were run in Claude Code; findings and fixes are in `docs/EVAL_REPORT.md` and
+`docs/SPIKES.md`.
 
 ### M5. Behavioural evals and MVP release
 
-- [ ] `evals/` cases for PRODUCT_SPEC §10 release-gate scenarios (1, 2, 4, 6, 9, 12, 13, 14, 15)
-- [ ] Baseline comparison run; cost recorded
-- [ ] `examples/sample-data/` (a realistic C++ + SQL learner)
-- [ ] README (install, quick start, surfaces, privacy summary), CHANGELOG, LICENSE (MIT)
+- [x] `evals/` cases for PRODUCT_SPEC §10 release-gate scenarios (1, 2, 4, 6, 9, 12, 13, 14, 15)
+- [x] Baseline comparison run; cost recorded
+- [x] `examples/sample-data/` (a realistic C++ + SQL learner)
+- [x] README (install, quick start, surfaces, privacy summary), CHANGELOG, LICENSE (MIT)
 
 **Exit = v0.1.0:**
 - installs by documented steps;
@@ -119,6 +120,10 @@ with notes on what felt wrong; issues are fixed or filed.
 cuts, they move to v0.2.0 in this order: settings, research, reviews.*
 
 ---
+
+
+**Status (2026-11-01):** v0.1.0 done. 158 automated tests, release-gate evals met (see
+`docs/EVAL_REPORT.md`). Open: S2 (Cowork) and eval case 16 quality tuning.
 
 ## Phase 4 — Advanced features
 

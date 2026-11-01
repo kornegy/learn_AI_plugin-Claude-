@@ -2,18 +2,29 @@
  * Creates a realistic sample learner (C++ + SQL) in the given data root, using the real
  * services. Used to generate examples/sample-data and for manual walkthroughs.
  *
- *   node scripts/run-ts.mjs scripts/seed-sample.ts <root> [workspace]
+ *   node scripts/run-ts.mjs scripts/seed-sample.ts <root> [workspace] [--mode=sample|empty|corrupt]
+ *
+ * Modes: sample (default) = full learner; empty = initialised, no subjects;
+ * corrupt = sample with a broken knowledge-base/cpp/pointers.md (for doctor scenarios).
  */
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fixedClock } from '../src/core/clock.js';
 import { Mentor } from '../src/services/mentor.js';
 
-const root = path.resolve(process.argv[2] ?? 'sample-data');
-const workspace = process.argv[3] ? path.resolve(process.argv[3]) : undefined;
+const args = process.argv.slice(2);
+const mode = (args.find((a) => a.startsWith('--mode='))?.slice(7) ?? 'sample') as 'sample' | 'empty' | 'corrupt';
+const positional = args.filter((a) => !a.startsWith('--'));
+const root = path.resolve(positional[0] ?? 'sample-data');
+const workspace = positional[1] ? path.resolve(positional[1]) : undefined;
 const clock = fixedClock('2026-10-01T09:00:00Z');
 const m = new Mentor(root, clock);
 
 await m.init({ ...(workspace ? { workspace_path: workspace } : {}), language: 'ru' });
+if (mode === 'empty') {
+  process.stdout.write(`Empty learner initialised in ${root}\n`);
+  process.exit(0);
+}
 await m.updateProfile({
   target: 'profile',
   add: { goals: ['Стать junior-разработчиком системного ПО'], background: ['Год скриптов на Python'], strengths: ['Настойчивость'] },
@@ -83,4 +94,7 @@ await m.saveSource({
   key_points: ['Указатель хранит адрес объекта или функции; тип указателя определяет, как интерпретируется объект по адресу.', 'Разыменование *p даёт lvalue объекта, на который указывает p.'],
 });
 
-process.stdout.write(`Sample learner written to ${root}\n`);
+if (mode === 'corrupt') {
+  await fs.writeFile(path.join(root, 'knowledge-base/cpp/pointers.md'), '---\nschema: [broken\n---\nhalf-written file\n');
+}
+process.stdout.write(`Sample learner (${mode}) written to ${root}\n`);

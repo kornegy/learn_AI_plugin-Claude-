@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: 04-no-level-inflation
+context:
+  scaffold_script: seed.sh
