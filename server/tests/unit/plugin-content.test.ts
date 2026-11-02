@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { promises as fs, existsSync } from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import YAML from 'yaml';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { registerTools } from '../../src/mcp/tools.js';
@@ -111,5 +112,79 @@ describe('cross references', () => {
     const plugin = JSON.parse(await fs.readFile(path.join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
     const pkg = JSON.parse(await fs.readFile(path.join(ROOT, 'server/package.json'), 'utf8'));
     expect(plugin.version).toBe(pkg.version);
+  });
+});
+
+/**
+ * The automated checks of Anthropic's plugin directory (docs/DIRECTORY_SUBMISSION.md). A failure here
+ * would block a submission, stop validation, or hold the plugin for a reviewer.
+ */
+describe('plugin directory rules', () => {
+  const tracked = (): { mode: string; file: string }[] | null => {
+    try {
+      const out = execFileSync('git', ['ls-files', '-s', '-z'], { cwd: ROOT, encoding: 'utf8' });
+      return out
+        .split('\0')
+        .filter(Boolean)
+        .map((line) => ({ mode: line.split(' ')[0]!, file: line.split('\t')[1]! }));
+    } catch {
+      return null; // not a git checkout (e.g. an installed copy): nothing to check
+    }
+  };
+
+  it('repository layout: file count, sizes, names, no symlinks or system files', async () => {
+    const files = tracked();
+    if (!files) return;
+    expect(files.length).toBeLessThanOrEqual(512);
+    const seen = new Set<string>();
+    for (const { mode, file } of files) {
+      expect(mode, `${file} must be a regular file, not a symlink or submodule`).toMatch(/^100(644|755)$/);
+      const base = path.posix.basename(file);
+      expect(['.DS_Store', 'Thumbs.db', 'desktop.ini'].includes(base) || file.includes('__MACOSX'), file).toBe(false);
+      for (const part of file.split('/')) {
+        expect(part, `${file}: name must be valid on Windows and macOS`).not.toMatch(/[:<>"|?*]|[. ]$/);
+        expect(part.split('.')[0]!.toLowerCase(), file).not.toMatch(/^(con|prn|aux|nul|com\d|lpt\d)$/);
+      }
+      expect(seen.has(file.toLowerCase()), `${file} differs from another file only by case`).toBe(false);
+      seen.add(file.toLowerCase());
+      expect(path.extname(file).toLowerCase(), `${file}: binary type the directory can't inspect`).not.toMatch(
+        /^\.(ico|pdf|zip|gz|tgz|exe|dll|so|dylib|node|wasm|mcpb|dxt|bin)$/,
+      );
+      const size = (await fs.stat(path.join(ROOT, file))).size;
+      expect(size, `${file} is over the directory's 5 MiB limit`).toBeLessThan(5 * 1024 * 1024);
+    }
+  });
+
+  it('no .gitattributes rules that rewrite files, no root lockfile install', () => {
+    expect(existsSync(path.join(ROOT, '.gitattributes'))).toBe(false);
+    expect(existsSync(path.join(ROOT, 'package.json'))).toBe(false);
+  });
+
+  it('listing fields point at real files and https pages', async () => {
+    const plugin = JSON.parse(await fs.readFile(path.join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
+    expect(plugin.name).toMatch(/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/);
+    expect(plugin.description && plugin.author?.name && plugin.version && plugin.license).toBeTruthy();
+    const icon = await fs.readFile(path.join(ROOT, plugin.icon));
+    expect(icon.subarray(1, 4).toString('ascii')).toBe('PNG');
+    for (const key of ['homepage', 'documentationUrl', 'supportUrl', 'privacyPolicyUrl']) {
+      expect(plugin[key], key).toMatch(/^https:\/\/github\.com\/kornegy\/learn_AI_plugin-Claude-/);
+    }
+    const readme = (await fs.readFile(path.join(ROOT, 'README.md'), 'utf8')).replace(/```[\s\S]*?```/g, '');
+    expect(readme.split(/\s+/).filter(Boolean).length).toBeGreaterThan(40);
+  });
+
+  it('shipped bundles are readable, not minified, and come with license notices', async () => {
+    const dist = path.join(ROOT, 'server/dist');
+    const files = [
+      ...(await fs.readdir(dist)).map((f) => path.join(dist, f)),
+      ...(await fs.readdir(path.join(dist, 'chunks'))).map((f) => path.join(dist, 'chunks', f)),
+    ].filter((f) => f.endsWith('.mjs'));
+    for (const f of files) {
+      const lines = (await fs.readFile(f, 'utf8')).split('\n');
+      const avg = lines.reduce((n, l) => n + l.length, 0) / lines.length;
+      expect(avg, `${f} looks minified`).toBeLessThan(80);
+    }
+    const notices = await fs.readFile(path.join(ROOT, 'THIRD_PARTY_NOTICES.md'), 'utf8');
+    for (const dep of ['@modelcontextprotocol/sdk', 'zod', 'yaml', 'ts-fsrs']) expect(notices).toContain(`## ${dep} `);
   });
 });

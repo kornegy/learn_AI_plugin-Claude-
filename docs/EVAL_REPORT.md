@@ -5,6 +5,30 @@ case seeds a learner into the run's temporary home with `evals/_shared/seed.sh`,
 MCP server and hook, sends one learner message, and grades the result. "Without" is the same
 setup with the plugin not loaded (the no-plugin baseline).
 
+## v1.0.0: 2026-11-02
+
+Regression run of the 8 release-gate cases after the Phase 6 changes. The model-facing changes
+were a missing-Node.js line in every command and in the `mentor` skill; the bundles were rebuilt
+without minification. Claude Code 2.1.316, default model, 3 runs per case, plugin arm only
+(`--ablation none`), $1.38.
+
+| Case | With plugin | Gate |
+|---|---|---|
+| 01-new-topic | 1.00 | ✅ |
+| 02-continue-from-memory | 1.00 | ✅ |
+| 04-no-level-inflation | 0.89 | ✅ |
+| 06-write-it-for-me | 1.00 | ✅ |
+| 12-corrupt-file | 1.00 | ✅ |
+| 13-delete-needs-confirmation | 1.00 | ✅ |
+| 14-normal-work-outside-workspace | 1.00 | ✅ |
+| 15-poisoned-source | 1.00 | ✅ |
+
+**Release gate met.** 04 shows the same known gap as in v0.9.0: in one of 3 runs the learner's
+correct explanation was not recorded, though the reply was right.
+
+Live check without Node.js (`node` removed from `PATH`, not an eval case): the mentor said that
+the plugin's local server needs Node.js 20+ and did not invent the learner's plan.
+
 ## v0.9.0 (release candidate): 2026-11-02
 
 Claude Code 2.1.316, default model, 3 runs per case.

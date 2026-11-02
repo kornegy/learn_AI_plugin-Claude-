@@ -1,5 +1,7 @@
 # Learning Mentor
 
+![Learning Mentor icon: an open book with a rising learning path](assets/icon.png)
+
 **A personal learning mentor for Claude that remembers what you actually know.**
 
 Learning Mentor turns Claude into a patient, Socratic mentor with long-term memory. It tracks
@@ -8,8 +10,8 @@ path, brings topics back for review before you forget them, and helps you write 
 solutions instead of writing them for you. Everything it stores is plain text in a local folder
 that you own.
 
-> **Status: 0.9.0 (release candidate).** Works in Claude Code. Cowork support is designed but not
-> yet verified. See [Where it works](#where-it-works) and the [roadmap](docs/ROADMAP.md).
+> **Version 1.0.0.** Tested in Claude Code. Cowork support is designed but not yet verified. See
+> [Where it works](#where-it-works).
 
 ---
 
@@ -54,7 +56,12 @@ export a one-file snapshot (`/learning-mentor:export snapshot`) and add it to a 
 ## Requirements
 
 - Claude Code 2.1.275 or later
-- **Node.js 20 or later** on your `PATH` (the plugin's local server and hook run on Node)
+- **Node.js 20 or later** on your `PATH`. The plugin's memory server and its two hooks are small
+  Node programs. Check with `node --version`; install from [nodejs.org](https://nodejs.org) if
+  needed. Claude Code's native installer doesn't include Node.
+
+Without Node, Claude Code still starts. The mentor skills still work, but nothing is saved, and the
+mentor tells you that its server needs Node.js.
 
 ## Install
 
@@ -71,8 +78,14 @@ claude plugin install learning-mentor@learning-mentor-marketplace
 Or, inside a Claude Code session:
 
 ```text
-/plugin install learning-mentor --marketplace kornegy/learn_AI_plugin-Claude-
+/plugin marketplace add kornegy/learn_AI_plugin-Claude-
 ```
+
+```text
+/plugin install learning-mentor@learning-mentor-marketplace
+```
+
+Restart Claude Code after installing.
 
 ## Quick start
 
@@ -175,14 +188,41 @@ See [examples/sample-data](examples/sample-data) for a realistic learner, and
 - If a file gets damaged, ask the mentor to run a repair: `mentor_doctor` quarantines the file and
   rebuilds it from the journal.
 
+## What the plugin runs, stores and sends
+
+| Part | What it does | Runs |
+|---|---|---|
+| `SessionStart` hook (`server/dist/hook.mjs`) | In a registered learning workspace, reads your data folder and adds the learner card to the session. Elsewhere it prints nothing | Locally, at session start |
+| `UserPromptSubmit` hook (`server/dist/nudge.mjs`) | In a learning workspace, counts prompts and adds one line if nothing was saved for 8 prompts. It ignores what you write and never stores it | Locally, on each prompt |
+| MCP server `learning-mentor` (`server/dist/mentor-mcp.mjs`) | 21 tools that read and write the data folder | Locally, over stdio |
+| `researcher` agent | Looks up current sources with Claude's own WebSearch and WebFetch tools, under your permission settings | Only when you ask for research, or when a versioned topic needs checking |
+| Skills, commands, output style | Instructions for Claude | No code |
+
+- **Stores:** your learning data only in your data folder (see [Your data](#your-data)). The
+  nudge hook also keeps a tiny per-session counter (a number and the id of the last saved change, no text) in Claude Code's
+  plugin data folder, or in the system temp folder if that isn't set.
+- **Sends:** nothing. The plugin's code makes no network requests and has no telemetry or
+  analytics. Your conversation itself is processed by Claude as usual.
+- **Fetches:** nothing by itself. Web pages are fetched only by Claude's web tools during
+  research, and you can deny them.
+- **Code:** the shipped programs in `server/dist/` are readable (not minified) and are built
+  from `server/src`; CI checks that they match. Bundled open-source packages are listed in
+  [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Updating
+
+```bash
+claude plugin marketplace update learning-mentor-marketplace
+```
 
 ```bash
 claude plugin update learning-mentor@learning-mentor-marketplace
 ```
 
-Your data format is versioned. Newer plugin versions migrate data forward and back up files
-before migrating. Data written by a newer version opens read-only in an older one.
+Restart Claude Code afterwards. Updating never touches your data folder. Every data file records
+its format version; all releases so far use the same format, so nothing needs converting. An
+older plugin version refuses to change data written in a newer format and asks you to update.
+See the [upgrade guide](docs/UPGRADING.md) for rollbacks and troubleshooting.
 
 ## How it works
 
@@ -218,8 +258,15 @@ Behavioural evals make real model calls, billed to your account:
 claude plugin eval . --scaffold --allow-real-servers --allow-tools "mcp__plugin_learning-mentor_learning-mentor__*" --trust-plugin --max-cost-usd 5
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), the latest [eval report](docs/EVAL_REPORT.md) and the [QA report](docs/QA_REPORT.md) (security review, fuzzing, performance).
+See [CONTRIBUTING.md](CONTRIBUTING.md), the latest [eval report](docs/EVAL_REPORT.md), the
+[QA report](docs/QA_REPORT.md) (security review, fuzzing, performance) and the
+[directory submission prep](docs/DIRECTORY_SUBMISSION.md).
+
+## Support
+
+Questions, bugs and teaching feedback: [GitHub issues](https://github.com/kornegy/learn_AI_plugin-Claude-/issues).
+Security reports: see [SECURITY.md](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Bundled third-party packages: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

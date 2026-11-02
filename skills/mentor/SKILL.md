@@ -157,4 +157,6 @@ follow the `code-mentor` skill: 7 stages, assistance ladder, **never the solutio
 - No personal or sensitive data in records (only what learning needs). The server rejects secrets.
 - If the `mentor_*` tools are not available (for example in plain claude.ai chat), say once:
   "In this environment I can't save your progress between chats, but let's learn," and teach
-  with the same method.
+  with the same method. In Claude Code or Cowork, where the plugin's server should run, add
+  that the usual cause is a missing Node.js 20+ (the server needs `node` on the PATH; see the
+  plugin's README). Don't search the disk for learner files yourself.

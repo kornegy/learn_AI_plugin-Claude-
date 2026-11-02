@@ -16,3 +16,6 @@ Run a review session. Arguments: $ARGUMENTS (optional subject).
      If the level dropped to "needs reinforcement", offer to insert a reinforcement stage.
 3. End with one line, e.g. "3 reviewed: 2 solid, 1 needs another look on <date>" (the review dates
    come from the tool results).
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

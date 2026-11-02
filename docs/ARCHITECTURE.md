@@ -655,13 +655,18 @@ workspaces: []
   `ts-fsrs` 5.4.x.
 - **Dev dependencies:** TypeScript 6.0.x, esbuild, vitest. *(v0.1.0)* Layering and privacy rules
   are enforced by architecture tests rather than eslint.
-- `esbuild` produces `server/dist/mentor-mcp.mjs` and `server/dist/hook.mjs`: minified
-  single-file ESM, Node ≥ 20 target, dependencies inlined, no `node_modules` at install time
-  (≈ 0.9 MB and 0.65 MB).
-- `dist/` is committed. CI rebuilds it and fails if the result differs from the committed files.
-- Node is invoked by name (`"command": "node"`). If Node is missing, Claude Code shows that the
-  MCP server failed to start. README documents the requirement. Phase 6 evaluates standalone
-  binaries outside `bin/`.
+- `esbuild` produces three ESM programs in `server/dist/`: `mentor-mcp.mjs` (MCP server),
+  `hook.mjs` (SessionStart) and `nudge.mjs` (UserPromptSubmit). Node ≥ 20 target, dependencies
+  inlined, no `node_modules` at install time. *(v1.0.0)* Output is **not minified** and uses code
+  splitting: code shared by the three programs lives in `server/dist/chunks/` (≈ 1.9 MB in total,
+  readable, one `// node_modules/<pkg>/…` or `// src/…` header per module). The build also writes
+  `THIRD_PARTY_NOTICES.md` from the bundle's metafile (ADR-017).
+- `dist/` is committed. CI rebuilds it and fails if the result, or the notices file, differs from
+  the committed files.
+- Node is invoked by name (`"command": "node"`). If Node is missing, Claude Code reports that the
+  hooks failed and the MCP server could not start; the session continues. The commands and the
+  `mentor` skill then tell the learner that the plugin's server needs Node.js 20+ and don't make
+  up any progress. No standalone binaries are shipped (ADR-018).
 - `claude plugin validate --strict` runs in CI.
 
 ```json
@@ -707,7 +712,7 @@ provisional flag and regression. The rule tables in §6 are the spec for these t
 | 006 | Level = deterministic function of model-classified evidence | The model assigns levels directly | Consistency, testability, no inflation |
 | 007 | Understanding level separate from retention (FSRS) | One combined level | Different phenomena; avoids false downgrades |
 | 008 | Research through a read-only subagent; server has no network code | The server fetches pages | Isolates untrusted content; respects user permissions |
-| 009 | TypeScript/Node, esbuild single-file bundles committed | Python; compiled binaries | Reference SDK; Node ships with Claude Desktop; no install step |
+| 009 | TypeScript/Node, esbuild bundles committed (readable and split since v1.0.0, ADR-017) | Python; compiled binaries | Reference SDK; Node ships with Claude Desktop; no install step |
 | 010 | Delete goes to trash by default; purge on request with a token | Immediate delete | Protection from accidents plus a real erasure option |
 | 011 | Assistance ladder, `balanced` by default; a full solution is never given | Absolute no-code rule | Worked-example effect for novices |
 | 012 | Managed sections delimited by HTML comments | Fixed English headings | Localised headings, preserves learner's free text |
@@ -715,3 +720,38 @@ provisional flag and regression. The rule tables in §6 are the spec for these t
 | 014 | "Different sessions" in the mastery rules means different calendar days | Session ids | Surface-independent; matches the spacing effect |
 | 015 | *(v0.1.0)* The card's workspace line names the mentor skills and says requests there are learning exercises | Facts-only card; forced output style | Live test: a facts-only card did not change behaviour; a forced style would affect all projects |
 | 016 | *(v0.1.0)* Reviews (FSRS cards) start only from demonstrated evidence, not from self-reports or overrides | Start from any level ≥ 3 | Self-reported knowledge isn't something to schedule reviews for until it is shown |
+| 017 | *(v1.0.0)* Readable (non-minified), code-split bundles with generated license notices | Minified bundles; lockfile install at the plugin root | The directory's scan must be able to read the shipped code; details below |
+| 018 | *(v1.0.0)* Node.js 20+ on PATH is a documented requirement; no standalone binaries | Per-platform executables; `.mcpb` | Size and inspection limits of the directory; details below |
+
+### ADR-017 — Readable, split bundles instead of minified ones *(v1.0.0)*
+
+**Context.** Anthropic's plugin directory scans the shipped files and holds code it can't read
+(compiled, packed or minified) for a human reviewer. Files over 256 KiB are also held; files over
+5 MiB stop validation. Users who install from a marketplace get no build step.
+**Decision.** Ship non-minified esbuild output with code splitting, and generate
+`THIRD_PARTY_NOTICES.md` with the license text of every bundled package. The TypeScript sources
+in `server/src` stay the reference; CI proves that `dist/` is exactly what they build to.
+**Consequences.** Shipped code is readable and about half the size of three separate bundles
+(≈ 1.9 MB vs 3.3 MB unminified). Two chunks and the server entry are still over 256 KiB, so a
+directory submission is expected to be held for a reviewer once; that is a review, not a
+rejection. SessionStart hook time is unchanged (≈ 260 ms at 150 topics). The alternative,
+installing dependencies from a lockfile at the plugin root, is also held for review, needs npm
+and network at install time, and resolves code at install time; rejected.
+
+### ADR-018 — No standalone binaries; Node.js 20+ is a documented requirement *(v1.0.0)*
+
+**Context.** Users without Node can't run the hooks or the MCP server. Options evaluated in
+Phase 6: Node single-executable applications or Bun-compiled binaries per platform; a `.mcpb`
+bundle (Claude Desktop ships its own Node runtime for those); keeping `node` on PATH.
+**Decision.** Keep `node` on PATH as the requirement, documented in the README, and make the
+failure understandable: commands and the `mentor` skill name the cause. Ship no binaries.
+**Why.** A standalone binary is 50–100 MB per platform (×5 platforms). That is over the
+directory's 5 MiB per-file and 50 MiB repository limits, and compiled executables are held for
+review because they can't be inspected. `bin/` must stay absent for claude.ai and Cowork.
+`.mcpb` bundles inside a plugin are held for review too, and they target Claude Desktop chat,
+which ignores local plugin servers anyway (spike S3, deferred). Claude Code's Node-free native
+installer is common, so this requirement is real. It is checked by a live test: with `node`
+removed from PATH, the session works and the mentor explains the missing Node.js instead of
+inventing progress.
+**Revisit** if Claude Code exposes a runtime to plugins, or if a `.mcpb` Desktop build is wanted.
+

@@ -14,3 +14,6 @@ Show the learner's status. Arguments: $ARGUMENTS (optional subject id).
    - the recommended next step (one line).
 3. If the result lists data problems, say so and suggest `mentor_doctor` with `repair: true`.
 4. Don't start teaching unless the learner asks.
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

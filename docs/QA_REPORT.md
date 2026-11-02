@@ -73,7 +73,17 @@ Changes:
 
 The first call after many file changes rebuilds the cache, about 1 s at 500 topics.
 
-## Known limitations at v0.9.0
+## Release check: v1.0.0 (Phase 6)
+
+- Bundles rebuilt without minification (ARCHITECTURE ADR-017): all tests pass (198); SessionStart
+  hook ≈ 260 ms at 150 topics, the same as the minified build.
+- Without Node.js (live run with `node` removed from `PATH`): Claude Code starts, the hooks and
+  server fail with "Executable not found", and the mentor says that the plugin's server needs
+  Node.js 20+. It doesn't invent progress (ADR-018).
+- `claude plugin validate --strict .` passes; the directory's automated rules are covered by tests
+  ([DIRECTORY_SUBMISSION.md](DIRECTORY_SUBMISSION.md)).
+
+## Known limitations at v0.9.0 (still open in 1.0.0)
 
 - **Cowork is not verified (spike S2).** Needs Claude Desktop on the owner's machine.
 - **No `.mcpb` bundle for Claude Desktop chat (S3).** Chat gets the methodology without memory.

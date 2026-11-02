@@ -26,8 +26,12 @@ cd server && npm ci
   and `hook/` call `services/`. `tests/unit/architecture.test.ts` enforces this.
 - No network code, no telemetry, and no dynamic `import()` (it breaks the esbuild bundle).
 - Every write goes through the root lock and appends to the journal before changing files.
-- **Rebuild and commit `server/dist/`** whenever you change `server/src`. Plugins install without
-  a build step; CI fails if `dist/` is stale.
+- **Rebuild and commit `server/dist/` and `THIRD_PARTY_NOTICES.md`** whenever you change
+  `server/src` or a dependency. Plugins install without a build step; CI fails if either is
+  stale. The build is deliberately not minified (ARCHITECTURE ADR-017): keep it that way.
+- **Windows:** the repository has no `.gitattributes`, because Anthropic's plugin directory
+  rejects attributes that rewrite files. Clone with `git config --global core.autocrlf false`
+  (or `input`) so that a rebuilt `dist/` matches the committed LF files.
 - Data format changes follow [docs/DATA_FORMAT.md §11](docs/DATA_FORMAT.md): optional fields are
   fine; renames and removals need a migration, a `data_schema` bump and a fixture test.
 

@@ -24,3 +24,6 @@ Run Learning Mentor onboarding. Arguments: $ARGUMENTS
 4. Draft a subject path of 3–8 topics with prerequisites and call `mentor_plan_path` with
    `create_missing: true`. Show it in a few lines: "We'll start with X, because Y."
 5. Ask: "Ready to start with X?" If yes, follow the `mentor` skill (new topic protocol).
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

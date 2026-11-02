@@ -2,7 +2,10 @@
 
 ## Supported versions
 
-Only the latest released version receives security fixes during the 0.x series.
+| Version | Security fixes |
+|---|---|
+| 1.0.x (latest) | ✅ |
+| < 1.0 | ❌ Update to the latest version ([upgrade guide](docs/UPGRADING.md)) |
 
 ## Reporting a vulnerability
 
@@ -37,4 +40,9 @@ See [docs/ARCHITECTURE.md §12](docs/ARCHITECTURE.md) for the threat model:
 - writes are atomic and locked;
 - deletion takes two steps and goes to trash by default;
 - web research runs in a read-only subagent;
-- there is no network code in the server.
+- there is no network code in the server;
+- the shipped code in `server/dist/` is readable (not minified) and CI checks that it is built
+  from `server/src` exactly.
+
+See [docs/QA_REPORT.md](docs/QA_REPORT.md) for the Phase 5 security review and its regression
+tests.

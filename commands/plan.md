@@ -15,3 +15,6 @@ Show or edit the learning plan. Arguments: $ARGUMENTS
 - **Nothing given**: use `mentor_next` and show the plan for the most active subject.
 
 Keep the output short. Confirm changes before writing them.
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

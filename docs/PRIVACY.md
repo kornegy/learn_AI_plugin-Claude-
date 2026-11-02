@@ -19,6 +19,11 @@ as with any conversation.
 | `.mentor/journal/*.jsonl` | Append-only history of the changes above (the source for repairs) |
 | `.mentor/backups/`, `trash/`, `quarantine/` | Safety copies made before risky operations, deleted items (30 days), damaged files |
 
+Outside the data folder, the checkpoint nudge keeps one tiny file per Claude Code session: a
+counter and the id of the last saved change, no text. It lives in Claude Code's plugin data folder
+(`~/.claude/plugins/data/…/nudge/`), which is deleted when you uninstall the plugin, or in the
+system temp folder if that folder isn't available.
+
 ## What is not stored
 
 - Full conversations or transcripts.

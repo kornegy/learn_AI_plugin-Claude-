@@ -25,3 +25,6 @@ visible to you.
    - update text sections (`understands`, `gaps`) with `mentor_upsert_topic`;
    - save a short summary and the planned next step with `mentor_log_session`.
 5. Report level changes from the tool results, in one line each.
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

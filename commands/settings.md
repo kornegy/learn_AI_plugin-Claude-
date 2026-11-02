@@ -22,3 +22,6 @@ in the learner's language:
 
 To change a value, call `mentor_settings` with `set`, e.g. `{"set": {"assistance_level": "strict"}}`,
 and confirm what changed.
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

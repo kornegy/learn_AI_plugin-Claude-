@@ -11,3 +11,6 @@ Export the learner's data. Arguments: $ARGUMENTS
 3. If a snapshot was created, explain: upload `learner-snapshot.md` to a claude.ai Project's
    knowledge so chats in that Project know your levels and plan. It is read-only there; progress
    made in chat is not saved back.
+
+If the `mentor_*` tools are unavailable, say that the plugin's local server is not running (it needs
+Node.js 20 or later on the PATH; see the plugin's README). Don't search the disk for learner files.

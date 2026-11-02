@@ -20,7 +20,7 @@ Phase 2  Architecture ............ done
 Phase 3  MVP ..................... done → v0.1.0 (2026-11-01)
 Phase 4  Advanced ................ M6 done → v0.2.0 (2026-11-02); M7 partly
 Phase 5  Quality assurance ....... done → v0.9.0 RC (2026-11-02)
-Phase 6  Public release .......... M9       → v1.0.0
+Phase 6  Public release .......... done → v1.0.0 (2026-11-02); owner steps open
 ```
 
 ---
@@ -163,12 +163,17 @@ cuts, they move to v0.2.0 in this order: settings, research, reviews.*
 
 - [x] Move to the dedicated repository (done 2026-11-01 with `git subtree split`)
 - [ ] Make the repository public (owner's decision)
-- [ ] README, ARCHITECTURE, CONTRIBUTING, SECURITY, CHANGELOG, issue and PR templates,
-      upgrade guide
-- [ ] Marketplace install documented: `claude plugin marketplace add <owner>/learning-mentor`
-- [ ] Anthropic Directory pre-submission checklist; submission from the owner's account (owner's
-      action)
-- [ ] Evaluate standalone binaries for users without Node (outside `bin/`)
+- [x] README, ARCHITECTURE, CONTRIBUTING, SECURITY, CHANGELOG, issue and PR templates,
+      upgrade guide ([UPGRADING.md](UPGRADING.md))
+- [x] Marketplace install documented: `claude plugin marketplace add kornegy/learn_AI_plugin-Claude-`
+- [x] Anthropic Directory pre-submission checklist ([DIRECTORY_SUBMISSION.md](DIRECTORY_SUBMISSION.md)):
+      readable bundles, license notices, listing fields and icon, no `.gitattributes`, automated
+      tests for the directory's rules
+- [ ] Submission from the owner's account (owner's action)
+- [x] Evaluate standalone binaries for users without Node: not shipped (ADR-018). Node.js 20+
+      stays a documented requirement, and the mentor explains a missing Node.js
+- [ ] Tag `v1.0.0` after merging (owner)
+- [ ] Verify Cowork, spike S2 (owner, needs Claude Desktop)
 
 ## Later (v2 candidates)
 

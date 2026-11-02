@@ -24,6 +24,10 @@ jobs:
       run:
         working-directory: server
     steps:
+      # Keep LF line endings on Windows (the repository has no .gitattributes: the plugin
+      # directory does not accept attributes that rewrite file contents).
+      - run: git config --global core.autocrlf false
+        working-directory: .
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -37,7 +41,11 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node == '22'
         run: |
           npm run build
-          git diff --exit-code -- dist/ || (echo "::error::server/dist is stale. Run 'npm run build' in server/ and commit the result." && exit 1)
+          if [ -n "$(git status --porcelain -- dist/ ../THIRD_PARTY_NOTICES.md)" ]; then
+            git status --short -- dist/ ../THIRD_PARTY_NOTICES.md
+            echo "::error::server/dist or THIRD_PARTY_NOTICES.md is stale. Run 'npm run build' in server/ and commit the result."
+            exit 1
+          fi
 
   plugin:
     name: Plugin manifest
