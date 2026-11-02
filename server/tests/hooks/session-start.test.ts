@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawnSync, execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -14,8 +14,6 @@ let root: string;
 let workspace: string;
 
 beforeAll(async () => {
-  // Make sure the bundle under test is built from the current sources.
-  execSync('node esbuild.config.mjs', { cwd: path.resolve(__dirname, '../..'), stdio: 'ignore' });
   base = await fs.mkdtemp(path.join(os.tmpdir(), 'lm-hook-'));
   root = path.join(base, 'LearningMentor');
   workspace = path.join(base, 'learning');

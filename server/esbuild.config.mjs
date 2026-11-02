@@ -7,12 +7,10 @@
 // that the three programs share into chunks/, which roughly halves the shipped size.
 // THIRD_PARTY_NOTICES.md lists every bundled package with its license text.
 import { build } from 'esbuild';
-import { readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
-
-rmSync('dist', { recursive: true, force: true });
 
 const result = await build({
   entryPoints: {
@@ -39,6 +37,16 @@ const result = await build({
     js: "import { createRequire as __lmCreateRequire } from 'node:module'; const require = __lmCreateRequire(import.meta.url);",
   },
 });
+
+// Remove chunks left over from earlier builds (their names carry a content hash). Only after a
+// successful build, so a running program never loses its files mid-build.
+const outputs = new Set(Object.keys(result.metafile.outputs).map((f) => path.normalize(f)));
+for (const dir of ['dist', 'dist/chunks']) {
+  for (const f of existsSync(dir) ? readdirSync(dir) : []) {
+    const p = path.join(dir, f);
+    if (f.endsWith('.mjs') && !outputs.has(path.normalize(p))) rmSync(p);
+  }
+}
 
 // THIRD_PARTY_NOTICES.md: the packages that actually ended up in dist/, with their licenses.
 const packages = new Map();

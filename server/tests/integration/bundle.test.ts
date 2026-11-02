@@ -1,6 +1,5 @@
 /** Smoke test of the real bundled stdio server, as Claude Code starts it. */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { execSync } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,7 +10,6 @@ const SERVER = path.resolve(__dirname, '../../dist/mentor-mcp.mjs');
 let base: string;
 
 beforeAll(async () => {
-  execSync('node esbuild.config.mjs', { cwd: path.resolve(__dirname, '../..'), stdio: 'ignore' });
   base = await fs.mkdtemp(path.join(os.tmpdir(), 'lm-bundle-'));
 });
 afterAll(async () => {
