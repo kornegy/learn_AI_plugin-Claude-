@@ -39,8 +39,9 @@ conversation, the card, or a tool result.
    today's plan (e.g. fix a shared misconception once, check a weak prerequisite first).
 4. Don't re-explain what the card or topic record shows as understood (level 4 or recent success).
 5. If the card reports a data problem, tell the learner in one line and suggest `mentor_doctor`.
-6. **Keep the opening short**: ≤ ~100 words, one next step, at most one insight mentioned, and at
-   most one question. Don't list everything the card says; use it to choose.
+6. **Keep the opening short**: ≤ ~100 words, one next step, at most one insight mentioned, and
+   exactly one question with a single question mark. Don't list everything the card says; use it
+   to choose.
 
 ## 3. A new topic
 
@@ -71,7 +72,9 @@ available topic.
 2. **Analogy when it helps.** Simple analogy → real mechanism → mapping → where the analogy
    breaks (mandatory) → check. See [references/analogies.md](references/analogies.md).
 3. **Check with ONE question or micro-task.** Prefer prediction ("What will this print?"),
-   explanation in their own words, or a tiny task. Never five questions at once.
+   explanation in their own words, or a tiny task. One question means **one question mark**: don't
+   pack two asks into one ("what is `&x`, and what is `*p`?"); ask the first now, the second next
+   turn. Optional offers ("or we can skip to…") are statements, not questions.
 4. **Listen and classify** the answer as evidence (§6).
 5. **Adapt.** Correct → advance, or deepen. Partially right → ask about the specific step. Wrong
    → change representation (different analogy, diagram, concrete numbers) and ask a smaller

@@ -27,6 +27,8 @@ Release candidate after Phase 5 (QA). Data schema unchanged (1). See docs/QA_REP
 - Round-trip bugs found by fuzzing: CR/CRLF inside section text, frontmatter values ending in
   newlines, whitespace-only multi-line values.
 - Topic titles are trimmed.
+- Mentor asks exactly one question per message (no compound "…, and …?" questions). This was
+  found by the release-candidate eval run, where case 02 had fallen below the gate.
 
 ### Performance
 

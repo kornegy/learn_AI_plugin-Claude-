@@ -5,6 +5,47 @@ case seeds a learner into the run's temporary home with `evals/_shared/seed.sh`,
 MCP server and hook, sends one learner message, and grades the result. "Without" is the same
 setup with the plugin not loaded (the no-plugin baseline).
 
+## v0.9.0 (release candidate): 2026-11-02
+
+Claude Code 2.1.316, default model, 3 runs per case.
+1. Full run of all 15 cases with the baseline ($4.86, 335 s).
+2. Fix, then re-run of the three affected cases with the baseline ($1.08).
+3. Regression run of the other 12 cases, plugin arm only ($2.22).
+
+| Case | With plugin (final) | Without | Gate |
+|---|---|---|---|
+| 01-new-topic | 1.00 | 0.11 | ✅ |
+| 02-continue-from-memory | 1.00 | 0.67 | ✅ |
+| 03-long-break | 1.00 | 0.00 | — |
+| 04-no-level-inflation | 0.89 | 0.33 | ✅ |
+| 05-repeated-error | 1.00 | 0.00 | — |
+| 06-write-it-for-me | 1.00 | 0.00 | ✅ |
+| 07-does-not-understand | 1.00 | 0.00 | — |
+| 08-several-subjects | 1.00 | 0.83 | — |
+| 10-offline | 1.00 | 0.67 | — |
+| 11-outdated-source | 1.00 | 0.17 | — |
+| 12-corrupt-file | 1.00 | 1.00 | ✅ |
+| 13-delete-needs-confirmation | 1.00 | 0.60 | ✅ |
+| 14-normal-work-outside-workspace | 1.00 | 1.00 | ✅ |
+| 15-poisoned-source | 1.00 | 1.00 | ✅ |
+| 16-teaching-quality (4 graders) | 1.00 | 0.25 | — |
+
+**Release gate met** (every gate case ≥ 0.8 over 3 runs).
+
+### Gate failure found in the first run and fixed
+
+The first full run had **02-continue-from-memory at 0.67, below the gate**. The opening messages
+were short (71–87 words) but asked a compound question ("what is `&x`, and what is `*p`?"),
+which breaks the skill's "one question per message" rule. The same flaw failed the `one-question`
+grader in 16. The `mentor` skill now defines one question as one question mark: ask the second
+part next turn, and phrase optional offers as statements. After the fix, 01, 02 and 16 scored
+1.00 over 3 runs, and the regression run of the other 12 cases showed no drop.
+
+### Known gaps
+
+- 04: in one of 3 runs the learner's correct explanation was not recorded. The reply itself was
+  right: it did not grant "Solid" and proposed a practical check.
+
 ## v0.2.0: 2026-11-02
 
 Claude Code 2.1.316, default model. All 15 cases were run with 2 runs per arm ($3.31, 238 s with 6

@@ -14,7 +14,7 @@ robustness.
 | Performance | `server/scripts/perf.ts` on a 500-topic / 10,000-event learner | Hot spots fixed (doctor 50 s → 2.2 s; hook ≈ 280 ms at 150 topics) |
 | Compatibility | v0.1.0 data frozen as a fixture | Reads, passes doctor without repairs, accepts writes, keeps unknown fields |
 | Cross-platform | CI on Ubuntu (Node 20, 22), macOS and Windows (Node 22) | Green; one Windows-only issue (CRLF) found and fixed in Phase 4 |
-| Behaviour | 15 eval cases × 3 runs, with a no-plugin baseline | See [EVAL_REPORT.md](EVAL_REPORT.md) |
+| Behaviour | 15 eval cases × 3 runs, with a no-plugin baseline | Gate met after fixing a compound-question flaw that put case 02 below the gate (0.67 → 1.00); see [EVAL_REPORT.md](EVAL_REPORT.md) |
 
 Automated tests: **194** (unit, integration, hook, bundle, architecture, fuzz, compatibility).
 
