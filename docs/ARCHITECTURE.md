@@ -511,7 +511,13 @@ data, because it is deleted on uninstall (ADR-004).
 - `lstat` before each write: symlinks inside the root are refused for writes and followed for
   reads only if their target is inside the root.
 - Windows reserved names (`con`, `nul`, …) are rejected by the id regex.
-- Read limit: 512 KB per file. Larger files are reported by `doctor` and not loaded.
+- Read limit: 512 KB per document and 64 MB per monthly journal file. Larger files are reported
+  by `doctor` and not loaded.
+- *(v0.9.0)* Only kebab-case names (`<slug>.md`, `_path.md`, slug folders) are read. Other files
+  are ignored and only counted, so their names never reach the model.
+- *(v0.9.0)* The filesystem root, the home folder and its ancestors are rejected as data root and
+  as workspace.
+- *(v0.9.0)* Structural markers (`<!-- mentor:…`) inside written text are neutralised.
 
 ### 10.3. Writes, locking, journal
 
@@ -519,7 +525,15 @@ data, because it is deleted on uninstall (ADR-004).
   On Windows, retry `rename` on `EPERM`/`EBUSY` up to 5 times.
 - **Lock:** `.mentor/lock`, created with `O_EXCL` and containing `{pid, host, started}`. Retry
   with backoff for up to 5 s. A lock older than 30 s whose pid is gone is stale and is taken
-  over. One lock for the whole root is enough: writes are small and infrequent.
+  over. One lock for the whole root is enough: writes are small and infrequent. *(v0.9.0)* The
+  takeover renames the stale file atomically and checks its content; if another process had
+  already replaced it with a fresh lock, that lock is restored with an atomic `link`.
+- **Frontmatter cache** *(v0.9.0)*: `.mentor/cache/frontmatter.json` holds parsed frontmatter
+  keyed by inode, size and mtime, because YAML parsing dominates bulk loads. It is derived and
+  disposable: stale or invalid entries fall back to a full read, it is excluded from exports, and
+  it is dropped on every deletion.
+- **Journal index** *(v0.9.0)*: histories of many topics come from one pass over the journal
+  (`JournalIndex`), never from a scan per topic.
 - **Journal:** `.mentor/journal/YYYY-MM.jsonl`, one event per line, ≤ 4 KB per line, appended
   with `O_APPEND` and then `fsync`. It is append-only, except for `purge` (§10.4), which rewrites
   affected lines and records the purge itself.

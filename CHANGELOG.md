@@ -7,6 +7,40 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
+Release candidate after Phase 5 (QA). Data schema unchanged (1). See docs/QA_REPORT.md.
+
+### Security
+
+- Section markers inside learner or model text are neutralised, so the text can no longer end a
+  managed section early and make a file unreadable.
+- Stale lock takeover is race-safe (atomic rename plus content check).
+- Only kebab-case file and folder names are read; other names are ignored and never echoed into
+  the learner card.
+- The secret filter also covers topic titles in `mentor_plan_path` and topic aliases.
+- The filesystem root and the home folder can't be learning workspaces or the data root.
+- Journal files over 64 MB are skipped and reported instead of loaded.
+
+### Fixed
+
+- Round-trip bugs found by fuzzing: CR/CRLF inside section text, frontmatter values ending in
+  newlines, whitespace-only multi-line values.
+- Topic titles are trimmed.
+
+### Performance
+
+- One-pass journal index: `mentor_doctor` repair on 500 topics went from 50 s to 2 s.
+- Frontmatter cache (`.mentor/cache/`, excluded from exports, dropped on deletion): the
+  SessionStart hook takes about 280 ms at 150 topics; `next` and `find_topics` run about 6×
+  faster on large profiles.
+
+### Tests
+
+- Fuzz and property tests (seeded), tool-input fuzzing, security regression tests, and a
+  compatibility fixture with v0.1.0 data; 194 tests in total.
+- `scripts/perf.ts` performance probe.
+
 ## [0.2.0] - 2026-11-02
 
 Phase 4: deeper analysis, reviews, adaptation, visualisation, continuity. Data schema unchanged (1).

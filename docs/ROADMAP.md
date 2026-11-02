@@ -19,7 +19,7 @@
 Phase 2  Architecture ............ done
 Phase 3  MVP ..................... done → v0.1.0 (2026-11-01)
 Phase 4  Advanced ................ M6 done → v0.2.0 (2026-11-02); M7 partly
-Phase 5  Quality assurance ....... M8       → v0.9.0 (release candidate)
+Phase 5  Quality assurance ....... done → v0.9.0 RC (2026-11-02)
 Phase 6  Public release .......... M9       → v1.0.0
 ```
 
@@ -150,11 +150,12 @@ cuts, they move to v0.2.0 in this order: settings, research, reviews.*
 
 ## Phase 5 — Quality assurance (→ v0.9.0)
 
-- [ ] Full eval suite at 3 runs with pinned models; results in `docs/EVAL_REPORT.md`
-- [ ] Fuzzing of markdown/frontmatter parsing and tool inputs
-- [ ] Windows and macOS runs of unit, integration and hook tests in CI
-- [ ] Security review against ARCHITECTURE §12; `docs/PRIVACY.md`; `SECURITY.md`
-- [ ] Data migration test from every released schema fixture
+- [x] Full eval suite at 3 runs with the no-plugin baseline; results in `docs/EVAL_REPORT.md`
+- [x] Fuzzing of markdown/frontmatter parsing and tool inputs (3 bugs found and fixed)
+- [x] Windows and macOS runs of unit, integration and hook tests in CI
+- [x] Security review against ARCHITECTURE §12 (6 findings fixed); `docs/PRIVACY.md`; `SECURITY.md`
+- [x] Compatibility test with the frozen v0.1.0 data fixture
+- [x] Performance probe at 500 topics / 10k events; hot spots fixed (`docs/QA_REPORT.md`)
 - [ ] Beta with 5–10 learners through the project's own marketplace; feedback via GitHub Issues
       (no telemetry)
 

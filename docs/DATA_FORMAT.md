@@ -40,6 +40,7 @@
     ├── meta.yaml                         data_schema, created, plugin_version_last_write
     ├── config.yaml                       settings and registered workspaces
     ├── journal/YYYY-MM.jsonl             append-only event log
+    ├── cache/frontmatter.json            derived cache of parsed frontmatter (safe to delete; v0.9.0)
     ├── lock                              present only while a write is in progress
     ├── backups/<timestamp>-<reason>/     copies made before risky operations (last 20 kept)
     ├── trash/<timestamp>/                deleted items (30 days)

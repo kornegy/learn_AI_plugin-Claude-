@@ -8,7 +8,7 @@ path, brings topics back for review before you forget them, and helps you write 
 solutions instead of writing them for you. Everything it stores is plain text in a local folder
 that you own.
 
-> **Status: 0.2.0 (pre-release).** Works in Claude Code. Cowork support is designed but not
+> **Status: 0.9.0 (release candidate).** Works in Claude Code. Cowork support is designed but not
 > yet verified. See [Where it works](#where-it-works) and the [roadmap](docs/ROADMAP.md).
 
 ---
@@ -218,7 +218,7 @@ Behavioural evals make real model calls, billed to your account:
 claude plugin eval . --scaffold --allow-real-servers --allow-tools "mcp__plugin_learning-mentor_learning-mentor__*" --trust-plugin --max-cost-usd 5
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and the latest [eval report](docs/EVAL_REPORT.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md), the latest [eval report](docs/EVAL_REPORT.md) and the [QA report](docs/QA_REPORT.md) (security review, fuzzing, performance).
 
 ## License
 

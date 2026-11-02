@@ -1,6 +1,6 @@
 {
   "name": "learning-mentor-server",
-  "version": "0.2.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Local MCP server and hooks for the Learning Mentor Claude plugin",
   "license": "MIT",
