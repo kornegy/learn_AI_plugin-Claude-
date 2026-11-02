@@ -2,10 +2,11 @@
  * Creates a realistic sample learner (C++ + SQL) in the given data root, using the real
  * services. Used to generate examples/sample-data and for manual walkthroughs.
  *
- *   node scripts/run-ts.mjs scripts/seed-sample.ts <root> [workspace] [--mode=sample|empty|corrupt]
+ *   node scripts/run-ts.mjs scripts/seed-sample.ts <root> [workspace] [--mode=sample|empty|corrupt|stale]
  *
  * Modes: sample (default) = full learner; empty = initialised, no subjects;
- * corrupt = sample with a broken knowledge-base/cpp/pointers.md (for doctor scenarios).
+ * corrupt = sample with a broken knowledge-base/cpp/pointers.md (for doctor scenarios);
+ * stale = sample plus a fast-moving web source last verified in early 2024.
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -13,7 +14,7 @@ import { fixedClock } from '../src/core/clock.js';
 import { Mentor } from '../src/services/mentor.js';
 
 const args = process.argv.slice(2);
-const mode = (args.find((a) => a.startsWith('--mode='))?.slice(7) ?? 'sample') as 'sample' | 'empty' | 'corrupt';
+const mode = (args.find((a) => a.startsWith('--mode='))?.slice(7) ?? 'sample') as 'sample' | 'empty' | 'corrupt' | 'stale';
 const positional = args.filter((a) => !a.startsWith('--'));
 const root = path.resolve(positional[0] ?? 'sample-data');
 const workspace = positional[1] ? path.resolve(positional[1]) : undefined;
@@ -94,6 +95,24 @@ await m.saveSource({
   key_points: ['Указатель хранит адрес объекта или функции; тип указателя определяет, как интерпретируется объект по адресу.', 'Разыменование *p даёт lvalue объекта, на который указывает p.'],
 });
 
+if (mode === 'stale') {
+  const staleClock = fixedClock('2024-03-01T09:00:00Z');
+  const old = new Mentor(root, staleClock);
+  await old.upsertTopic({ topic_id: 'web/react-use-effect', title: 'useEffect в React', aliases: ['useEffect', 'react effects'] });
+  await old.saveSource({
+    subject: 'web',
+    source_slug: 'react-use-effect-legacy',
+    url: 'https://legacy.reactjs.org/docs/hooks-effect.html',
+    title: 'Using the Effect Hook',
+    publisher: 'reactjs.org (legacy docs)',
+    tier: 1,
+    topics: ['web/react-use-effect'],
+    technology: 'React',
+    technology_version: '18.2',
+    volatility: 'fast_moving',
+    key_points: ['useEffect runs after render; the dependency array controls when it re-runs.', 'Return a cleanup function to undo subscriptions.'],
+  });
+}
 if (mode === 'corrupt') {
   await fs.writeFile(path.join(root, 'knowledge-base/cpp/pointers.md'), '---\nschema: [broken\n---\nhalf-written file\n');
 }

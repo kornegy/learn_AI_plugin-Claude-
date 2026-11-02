@@ -7,6 +7,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-02
+
+Phase 4: deeper analysis, reviews, adaptation, visualisation, continuity. Data schema unchanged (1).
+
+### Added
+
+- `mentor_insights`: patterns across topics with a suggestion each (misconception shared by
+  several topics, recurring misconceptions, recent failures rooted in a weak prerequisite,
+  regressions, hint dependence, stalled stages, review backlog, provisional prerequisites).
+  High-severity insights also appear in the learner card.
+- `mentor_progress`: ASCII progress map per subject (level bars, provisional marks, current stage,
+  due reviews, misconceptions, missing prerequisites); used by `/learning-mentor:status`.
+- `mentor_log_session`: a short session summary and planned next step that the next session
+  starts from (shown in the card until newer evidence exists).
+- Interleaved review sessions (`mentor_next` with `focus: "review"`) and a `reinforce`
+  recommendation after a regression; `mentor_record_evidence` returns a reinforcement suggestion.
+- Checkpoint nudge: a lightweight `UserPromptSubmit` hook adds one fact line after every 8 prompts
+  in a learning workspace without any recorded progress.
+- `/learning-mentor:reflect`: review the conversation for unrecorded evidence and save it after
+  the learner confirms.
+- More visual patterns (recursion tree, hash table, big-O, TCP handshake, git history).
+- Eval cases for scenarios 3, 5, 7, 8, 10 and 11; the teaching-quality rubric is split into four
+  graders.
+
+### Fixed
+
+- Windows: line endings are kept as LF (`.gitattributes`); content tests tolerate CRLF.
+
 ## [0.1.0] - 2026-11-01
 
 First MVP (pre-release). Data schema 1.

@@ -67,7 +67,7 @@ environment and teaches anyway.
 │  output-styles/  mentor.md      (opt-in, Claude Code only, never forced)                │
 │  hooks/hooks.json                                                                       │
 │    SessionStart(startup|resume|clear|compact) → node dist/hook.mjs session-start        │
-│    UserPromptSubmit → node dist/hook.mjs checkpoint-nudge          (Phase 4)            │
+│    UserPromptSubmit → node dist/nudge.mjs   (v0.2.0, separate light bundle, ~50 ms)     │
 │  .mcp.json → node dist/mentor-mcp.mjs                                                   │
 │                                                                                         │
 │  server/  (TypeScript → two esbuild bundles, committed to git)                          │
@@ -397,6 +397,32 @@ Priority order, truncated to the top 5 items:
 
 Each item has a one-line `why`.
 
+### 7.4. Insights *(v0.2.0)*
+
+`engine/insights.ts` turns topic state and evidence into actionable patterns, sorted by severity:
+
+| Insight | Rule | Suggestion |
+|---|---|---|
+| `cross_topic_misconception` (high) | same unresolved misconception id in ≥ 2 topics | fix the shared idea once, then re-check each topic |
+| `recurring_misconception` (high) | a misconception came back after `resolved` | new representation; learner explains why the wrong model fails |
+| `weak_prerequisite` (high) | ≥ 2 failures on a topic in 14 days and a prerequisite is null, ≤ 2 or provisional | check that prerequisite first |
+| `regression` (medium) | level 2 after a regression in the last 30 days | insert a reinforcement stage |
+| `hint_dependence` (medium) | ≥ 3 successful applications, all assisted | fade hints |
+| `review_backlog` (medium) | ≥ 5 reviews due | short interleaved review sessions |
+| `stalled_stage` (low) | a stage active > 14 days | split it or revisit its prerequisite |
+| `probe_provisional` (low) | a provisional level ≥ 3 is a prerequisite of a topic in progress | confirm with one question |
+
+High-severity insights appear in the learner card (quoted). The recommender adds `reinforce`
+after a regression until the topic plan is updated, and interleaves due reviews across
+subjects (round-robin, most overdue first).
+
+### 7.5. Checkpoint nudge *(v0.2.0)*
+
+`UserPromptSubmit` runs `dist/nudge.mjs`, a separate bundle without zod or services (~50 ms).
+Inside a workspace it compares the newest journal event id with the one seen at the previous
+prompt of the same session (`${CLAUDE_PLUGIN_DATA}/nudge/<session>.json`). After every 8 prompts
+without a change it adds one fact line. It never blocks, and outside workspaces it prints nothing.
+
 ---
 
 ## 8. Learner card (context injection)
@@ -439,7 +465,10 @@ topic id is `<subject>/<slug>` with the same slug rule. Titles may be in any lan
 |---|---|---|---|
 | `mentor_init` | `workspace_path?`, `language?` | root path, created folders, workspaces | config, folders |
 | `mentor_get_context` | `subject?` | learner card + structured state | — |
-| `mentor_next` | `subject?` | prioritised recommendations (§7.3) | — |
+| `mentor_next` | `subject?`, `focus?: all\|review` | prioritised recommendations (§7.3); `review` = due reviews interleaved across subjects | — |
+| `mentor_insights` *(v0.2.0)* | `subject?` | cross-topic patterns with suggestions (§7.4) | — |
+| `mentor_progress` *(v0.2.0)* | `subject?` | ASCII progress map per subject | — |
+| `mentor_log_session` *(v0.2.0)* | `summary`, `next_step?`, `topics?` | saved; shown in the next card | journal |
 | `mentor_find_topics` | `query`, `subject?`, `limit≤20` | matches `{id,title,aliases,level,provisional,score}` | — |
 | `mentor_get_topic` | `topic_id`, `evidence_limit≤50` | record, prerequisites with levels, stages, recent evidence, misconceptions | — |
 | `mentor_upsert_topic` | `topic_id`, `title`, `aliases?`, `prerequisites?`, `sections?{summary,studied,understands,gaps,to_review}`, `section_mode: replace\|append` | record | topic |
@@ -456,7 +485,7 @@ topic id is `<subject>/<slug>` with the same slug rule. Titles may be in any lan
 | `mentor_delete` | `scope: topic\|subject\|research\|all`, `target?`, `purge?`, `confirmation_token?` | step 1: what would be deleted + token; step 2: result | trash / removal |
 | `mentor_doctor` | `repair?` | integrity report, actions taken | quarantine, repaired files |
 
-18 tools. Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
+21 tools (v0.2.0). Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
 use the tool. Claude Code defers MCP tool schemas when there are many tools, so the context cost
 is acceptable.
 

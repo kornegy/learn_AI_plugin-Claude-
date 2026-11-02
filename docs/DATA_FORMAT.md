@@ -360,6 +360,7 @@ One JSON object per line:
 | `export` | destination, snapshot, files |
 | `delete` / `purge` | scope, target, removed_events. A `delete` is also a tombstone: replay and doctor ignore earlier events of that scope |
 | `repair` | number of problems |
+| `session_logged` *(v0.2.0)* | summary (≤ 500), next_step (≤ 200), topics |
 
 *(v0.1.0)* Non-topic documents are journaled as full `snapshot`s, so `mentor_doctor` can rebuild
 any structured file. Topics are rebuilt by replaying their evidence. Review state (FSRS) is not

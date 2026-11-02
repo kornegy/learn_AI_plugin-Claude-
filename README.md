@@ -8,7 +8,7 @@ path, brings topics back for review before you forget them, and helps you write 
 solutions instead of writing them for you. Everything it stores is plain text in a local folder
 that you own.
 
-> **Status: 0.1.0 (MVP, pre-release).** Works in Claude Code. Cowork support is designed but not
+> **Status: 0.2.0 (pre-release).** Works in Claude Code. Cowork support is designed but not
 > yet verified. See [Where it works](#where-it-works) and the [roadmap](docs/ROADMAP.md).
 
 ---
@@ -29,7 +29,11 @@ that you own.
   plan together → syntax on an unrelated example → a worked example of a *different* problem.
   If you really just need working code, say so and it switches to normal mode for that task.
 - **Plans and reviews.** Learning paths with prerequisites, stage plans with checkable goals, and
-  spaced reviews scheduled with [FSRS](https://github.com/open-spaced-repetition/ts-fsrs).
+  spaced reviews scheduled with [FSRS](https://github.com/open-spaced-repetition/ts-fsrs),
+  interleaved across subjects. After a failed review, it adds a short reinforcement stage.
+- **Spots patterns.** It notices the same misconception across topics, failures that come from a
+  weak prerequisite, and dependence on hints. It shows your progress as a map, and it
+  remembers what you planned for next time.
 - **Researches sources.** For versioned technology it checks current, authoritative sources
   through an isolated research agent, then saves cited notes with versions and freshness dates.
 - **Keeps your data yours.** Local Markdown files, an append-only history, export, trash and
@@ -41,7 +45,7 @@ that you own.
 |---|---|---|---|
 | Mentor methodology (skills) | ✅ | ✅ | ✅ |
 | Memory between sessions (local MCP server) | ✅ | ⚠️ expected, not yet verified | ❌ chat ignores local plugin servers |
-| Learner card at session start (hook) | ✅ | ⚠️ expected, not yet verified | ❌ chat ignores hooks |
+| Learner card at session start, checkpoint nudge (hooks) | ✅ | ⚠️ expected, not yet verified | ❌ chat ignores hooks |
 | Research agent | ✅ | ✅ | ❌ (chat uses its own web search) |
 
 In plain chat, the mentor teaches with the same method but says it cannot save progress. You can
@@ -88,6 +92,19 @@ Mentor mode is on by default **only inside learning workspaces**. In your other 
 behaves normally and writes code as usual. Outside a workspace, asking to *learn* something makes
 the mentor offer once to track it.
 
+### Progress map (`/learning-mentor:status`)
+
+```text
+C++ — Самостоятельно писать и отлаживать небольшие системные программы
+████ 4  variables      Хорошо знаю ↻
+███░ 3  memory-basics  Есть понимание, но слабое ↻
+███░ 3  pointers       Есть понимание, но слабое ▶ 3/5 Разыменование ↻ ⚠ addr-vs-value
+···· –  references     Не оценено
+···· –  dynamic-memory Не оценено
+Итого: 1 хорошо · 2 частично · 0 повторить · 0 новое · 2 не оценено
+Легенда: ████ уровень 1–4 · ? предварительно · ▶ текущий этап · ↻ пора повторить · ⚠ заблуждение
+```
+
 ### Example
 
 From a real session (the learner was studying pointers and had confused `&x` with `*p`):
@@ -113,6 +130,7 @@ Mentor: Понимаю, тебе нужно, чтобы это просто за
 | `/learning-mentor:review [subject]` | Spaced-review session: short retrieval questions |
 | `/learning-mentor:research <topic>` | Find and save current sources with versions and freshness |
 | `/learning-mentor:settings [key value]` | Language, explanation style, strictness, reviews, hints, mode |
+| `/learning-mentor:reflect [topic]` | Find learning progress in this conversation that wasn't saved, and save it after you confirm |
 | `/learning-mentor:export [snapshot]` | Export all data, optionally as one Markdown snapshot |
 | `/learning-mentor:forget <scope> [purge]` | Delete a topic, a subject, research notes or everything (with confirmation) |
 
@@ -173,7 +191,8 @@ skills (methodology)  ─┐
 commands               ├─ plugin ─▶ Claude Code / Cowork
 researcher agent       │
 SessionStart hook ─────┤   prints the learner card in learning workspaces
-local MCP server ──────┘   18 tools; computes levels, reviews and paths; validates and writes files
+UserPromptSubmit hook ─┤   one fact line if a learning session goes 8 messages without saved progress
+local MCP server ──────┘   21 tools; computes levels, reviews, paths and insights; validates and writes files
 ```
 
 The model classifies what you showed: explanation, application, a misconception… The server

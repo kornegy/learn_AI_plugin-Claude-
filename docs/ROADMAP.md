@@ -18,7 +18,7 @@
 ```
 Phase 2  Architecture ............ done
 Phase 3  MVP ..................... done → v0.1.0 (2026-11-01)
-Phase 4  Advanced ................ M6 → M7  → v0.2.0, v0.3.0
+Phase 4  Advanced ................ M6 done → v0.2.0 (2026-11-02); M7 partly
 Phase 5  Quality assurance ....... M8       → v0.9.0 (release candidate)
 Phase 6  Public release .......... M9       → v1.0.0
 ```
@@ -129,22 +129,22 @@ cuts, they move to v0.2.0 in this order: settings, research, reviews.*
 
 ### M6 → v0.2.0: depth of understanding and continuity
 
-- [ ] `UserPromptSubmit` checkpoint nudge (fact line when a learning session has gone N turns or
-      minutes without a record)
-- [ ] `/learning-mentor:reflect`: with consent, re-read the current Claude Code session
-      transcript and propose missing records for the learner to confirm
-- [ ] Cross-topic misconception analysis in the subject overview and the card
-- [ ] Interleaved review sessions across subjects
-- [ ] Remaining eval cases (3, 5, 7, 8, 10, 11, 16)
+- [x] `UserPromptSubmit` checkpoint nudge (fact line after 8 prompts without a record)
+- [x] `/learning-mentor:reflect`: review the current conversation (including a resumed one) for
+      unrecorded evidence; record after the learner confirms. *Changed from the plan:* it uses the
+      conversation in context rather than parsing transcript files (internal, surface-specific format)
+- [x] Cross-topic analysis: `mentor_insights` (8 insight types) in the card and `/status`
+- [x] Interleaved review sessions across subjects; reinforcement recommendation after regression
+- [x] Session continuity: `mentor_log_session` summary and next step in the card
+- [x] Remaining eval cases (3, 5, 7, 8, 10, 11); case 16 split into four graders
 
 ### M7 → v0.3.0: reach and richness
 
-- [ ] Visual patterns library for the most common CS topics (memory, processes, joins, recursion,
-      big-O)
-- [ ] `export snapshot` → claude.ai Project workflow, documented
+- [x] Visual patterns library for the most common CS topics, plus the `mentor_progress` map
+- [x] `export snapshot` → claude.ai Project workflow, documented
 - [ ] **S3** `.mcpb` bundle of the same server for Claude Desktop chat; ship if the spike passes
 - [ ] `userConfig.data_dir`, if S6 passed
-- [ ] Evaluate ts-fsrs 6.x
+- [ ] Evaluate ts-fsrs 6.x (6.0.0 released 2026-10-28; wait for it to settle)
 
 ---
 
