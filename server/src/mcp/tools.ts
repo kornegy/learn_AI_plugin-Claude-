@@ -181,7 +181,7 @@ export function registerTools(server: McpServer, mentor: Mentor, cwd: () => stri
         'Create a topic (needs title) or update its title, aliases, prerequisites and text sections. Text sections: summary (replaced), studied / understands / gaps / to_review (appended as dated bullets unless section_mode is "replace"). Never use this to set levels — record evidence instead.',
       inputSchema: {
         topic_id: topicId,
-        title: z.string().min(1).max(120).optional().describe("Human title in the learner's language."),
+        title: z.string().trim().min(1).max(120).optional().describe("Human title in the learner's language."),
         aliases: z.array(z.string().min(1).max(80)).max(20).optional().describe('Other names, e.g. the English term, abbreviations.'),
         prerequisites: z.array(z.string()).max(30).optional().describe('Topic ids this topic builds on.'),
         sections: z

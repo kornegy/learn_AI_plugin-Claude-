@@ -36,7 +36,8 @@ export function parseDoc(text: string, label = 'document'): MarkdownDoc {
   const endAtEof = normalized.endsWith('\n---') ? normalized.length - 4 : -1;
   const fmEnd = end !== -1 ? end : endAtEof;
   if (fmEnd === -1) throw new MentorError('E_CORRUPT', `${label}: frontmatter is not closed with "---".`, { path: label });
-  const fmText = normalized.slice(4, fmEnd);
+  // Include the newline before the closing '---': it belongs to the last YAML value (matters for '|+').
+  const fmText = normalized.slice(4, fmEnd + 1);
   let frontmatter: unknown;
   try {
     frontmatter = YAML.parse(fmText, { schema: 'core', uniqueKeys: true, logLevel: 'error' }) ?? {};
@@ -91,7 +92,9 @@ function trimBlank(s: string): string {
 }
 
 export function serializeDoc(doc: MarkdownDoc): string {
-  const fm = YAML.stringify(doc.frontmatter, { lineWidth: 0, indent: 2 }).trimEnd();
+  // Remove only the final newline: trimming more would change values that end in newlines (YAML "|+").
+  const raw = YAML.stringify(doc.frontmatter, { lineWidth: 0, indent: 2, blockQuote: false });
+  const fm = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
   const parts: string[] = [];
   for (const seg of doc.segments) {
     if (seg.type === 'text') {
@@ -113,7 +116,9 @@ export function serializeDoc(doc: MarkdownDoc): string {
  * "<!-- mentor:" sequence so section boundaries can only come from the server.
  */
 export function neutralizeMarkers(text: string): string {
-  return text.replace(/<!--(\s*)mentor:/gi, '<!--$1mentor-text:');
+  // Also normalise line endings: the parser reads CRLF/CR as LF, so storing them would make
+  // the file change on every rewrite.
+  return text.replace(/\r\n?/g, '\n').replace(/<!--(\s*)mentor:/gi, '<!--$1mentor-text:');
 }
 
 export function getSection(doc: MarkdownDoc, name: string): Section | undefined {

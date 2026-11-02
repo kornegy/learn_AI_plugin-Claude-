@@ -204,20 +204,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
 `))throw new z("E_CORRUPT",`${e}: missing YAML frontmatter.`,{path:e});let i=r.indexOf(`
 ---
 `,4),n=r.endsWith(`
----`)?r.length-4:-1,o=i!==-1?i:n;if(o===-1)throw new z("E_CORRUPT",`${e}: frontmatter is not closed with "---".`,{path:e});let a=r.slice(4,o),s;try{s=kh.default.parse(a,{schema:"core",uniqueKeys:!0,logLevel:"error"})??{}}catch(l){throw new z("E_CORRUPT",`${e}: frontmatter is not valid YAML (${l.message.split(`
+---`)?r.length-4:-1,o=i!==-1?i:n;if(o===-1)throw new z("E_CORRUPT",`${e}: frontmatter is not closed with "---".`,{path:e});let a=r.slice(4,o+1),s;try{s=kh.default.parse(a,{schema:"core",uniqueKeys:!0,logLevel:"error"})??{}}catch(l){throw new z("E_CORRUPT",`${e}: frontmatter is not valid YAML (${l.message.split(`
 `)[0]}).`,{path:e})}let c=i!==-1?r.slice(i+5):"";return{frontmatter:s,segments:kT(c,e)}}function kT(t,e){let r=t.split(`
 `),i=[],n=[],o=()=>{n.length&&i.push({type:"text",text:n.join(`
 `)}),n=[]};for(let a=0;a<r.length;a++){let s=r[a],c=oS.exec(s.trim());if(!c){if(s.trim()===$o)throw new z("E_CORRUPT",`${e}: "${$o}" without a matching section start.`,{path:e});n.push(s);continue}o();let l=c[1],u=[],d=!1;for(a=a+1;a<r.length;a++){let p=r[a];if(p.trim()===$o){d=!0;break}if(oS.test(p.trim()))break;u.push(p)}if(!d)throw new z("E_CORRUPT",`${e}: section "${l}" is not closed with "${$o}".`,{path:e});for(;u.length&&u[0].trim()==="";)u.shift();let f="";u.length&&u[0].startsWith("## ")&&(f=u.shift().slice(3).trim()),i.push({type:"section",name:l,heading:f,content:ST(u.join(`
-`))})}return o(),i}function ST(t){return t.replace(/^\s*\n/,"").replace(/\n\s*$/,"").replace(/^\n+|\n+$/g,"")}function aS(t){let e=kh.default.stringify(t.frontmatter,{lineWidth:0,indent:2}).trimEnd(),r=[];for(let n of t.segments){if(n.type==="text"){r.push(n.text);continue}let o=[`<!-- mentor:section ${n.name} -->`,`## ${n.heading}`];n.content&&o.push(n.content),o.push($o),r.push(o.join(`
-`))}let i=r.join(`
-`);return i=i.replace(/\n{3,}/g,`
+`))})}return o(),i}function ST(t){return t.replace(/^\s*\n/,"").replace(/\n\s*$/,"").replace(/^\n+|\n+$/g,"")}function aS(t){let e=kh.default.stringify(t.frontmatter,{lineWidth:0,indent:2,blockQuote:!1}),r=e.endsWith(`
+`)?e.slice(0,-1):e,i=[];for(let o of t.segments){if(o.type==="text"){i.push(o.text);continue}let a=[`<!-- mentor:section ${o.name} -->`,`## ${o.heading}`];o.content&&a.push(o.content),a.push($o),i.push(a.join(`
+`))}let n=i.join(`
+`);return n=n.replace(/\n{3,}/g,`
 
 `).replace(/^\n+/,""),`---
-${e}
+${r}
 ---
 
-${i.trimEnd()}
-`}function sS(t){return t.replace(/<!--(\s*)mentor:/gi,"<!--$1mentor-text:")}function Je(t,e){return t.segments.find(r=>r.type==="section"&&r.name===e)}function re(t,e,r,i){let n=sS(i).trim(),o=Je(t,e);if(o){o.content=n,o.heading||(o.heading=r);return}t.segments.push({type:"text",text:""},{type:"section",name:e,heading:r,content:n})}function xh(t,e,r,i,n){let o=i.flatMap(u=>sS(u).split(`
+${n.trimEnd()}
+`}function sS(t){return t.replace(/\r\n?/g,`
+`).replace(/<!--(\s*)mentor:/gi,"<!--$1mentor-text:")}function Je(t,e){return t.segments.find(r=>r.type==="section"&&r.name===e)}function re(t,e,r,i){let n=sS(i).trim(),o=Je(t,e);if(o){o.content=n,o.heading||(o.heading=r);return}t.segments.push({type:"text",text:""},{type:"section",name:e,heading:r,content:n})}function xh(t,e,r,i,n){let o=i.flatMap(u=>sS(u).split(`
 `)).map(u=>u.trim()).filter(Boolean).map(u=>u.startsWith("- ")?u:`- ${u}`);if(!o.length)return;let a=Je(t,e),c=[...a?.content?a.content.split(`
 `):[],...o],l=[];for(;c.join(`
 `).length>wT&&c.length>1;)l.push(c.shift());if(re(t,e,r,c.join(`
