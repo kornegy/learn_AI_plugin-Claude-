@@ -3,7 +3,7 @@ import { dayDiff } from '../core/clock.js';
 import type { Stage, SubjectPath, Topic, TopicPath } from '../schema/index.js';
 
 export interface Recommendation {
-  type: 'review' | 'continue_stage' | 'misconception' | 'next_topic' | 'blocked_topic' | 'start';
+  type: 'review' | 'reinforce' | 'continue_stage' | 'misconception' | 'next_topic' | 'blocked_topic' | 'start';
   topic?: string;
   stage?: string;
   why: string;
@@ -17,6 +17,8 @@ export interface RecommendInput {
   topicPaths: TopicPath[];
   subject?: string;
   limit?: number;
+  /** "review": only due reviews, interleaved across subjects (for review sessions). */
+  focus?: 'all' | 'review';
 }
 
 export function dueReviews(topics: Topic[], today: string): { topic: Topic; overdueDays: number }[] {
@@ -24,6 +26,28 @@ export function dueReviews(topics: Topic[], today: string): { topic: Topic; over
     .filter((t) => t.review && t.review.due <= today)
     .map((t) => ({ topic: t, overdueDays: dayDiff(t.review!.due, today) }))
     .sort((a, b) => b.overdueDays - a.overdueDays || a.topic.id.localeCompare(b.topic.id));
+}
+
+/**
+ * Interleaves due reviews across subjects (round-robin, most overdue first within each subject):
+ * mixing subjects in one session improves discrimination and retention (interleaving effect).
+ */
+export function interleaveBySubject<T extends { topic: Topic }>(items: T[]): T[] {
+  const queues = new Map<string, T[]>();
+  for (const it of items) {
+    const q = queues.get(it.topic.subject) ?? [];
+    q.push(it);
+    queues.set(it.topic.subject, q);
+  }
+  const out: T[] = [];
+  const subjects = [...queues.keys()];
+  while (out.length < items.length) {
+    for (const s of subjects) {
+      const next = queues.get(s)!.shift();
+      if (next) out.push(next);
+    }
+  }
+  return out;
 }
 
 export function activeStage(path: TopicPath): Stage | undefined {
@@ -42,13 +66,27 @@ export function recommend(input: RecommendInput): Recommendation[] {
     return [{ type: 'start', why: 'No topics yet: ask what the learner wants to learn and plan a path.' }];
   }
 
-  // 1. Overdue / due reviews (max 3).
-  for (const { topic, overdueDays } of dueReviews(topics, today).slice(0, 3)) {
-    out.push({
-      type: 'review',
-      topic: topic.id,
-      why: overdueDays > 0 ? `Review overdue by ${overdueDays} day(s).` : 'Review due today.',
-    });
+  const reviewItem = ({ topic, overdueDays }: { topic: Topic; overdueDays: number }): Recommendation => ({
+    type: 'review',
+    topic: topic.id,
+    why: overdueDays > 0 ? `Review overdue by ${overdueDays} day(s).` : 'Review due today.',
+  });
+
+  if (input.focus === 'review') {
+    return interleaveBySubject(dueReviews(topics, today)).slice(0, limit).map(reviewItem);
+  }
+
+  // 1. Overdue / due reviews (max 3, interleaved across subjects).
+  for (const item of interleaveBySubject(dueReviews(topics, today)).slice(0, 3)) out.push(reviewItem(item));
+
+  // 1b. Topics that regressed recently need a reinforcement stage before new material.
+  for (const t of topics) {
+    // Skip if the topic's plan was already updated after the regression and has an active stage.
+    const plan = input.topicPaths.find((p) => p.topic === t.id);
+    const replanned = !!plan && plan.updated >= (t.regressed_on ?? '') && !!activeStage(plan);
+    if (t.level === 2 && t.regressed_on && today >= t.regressed_on && !replanned) {
+      out.push({ type: 'reinforce', topic: t.id, why: `A check on ${t.regressed_on} showed forgetting; insert a short reinforcement stage (mentor_plan_topic mode "insert").` });
+    }
   }
 
   // 2. Active stage of the most recently updated topic path.

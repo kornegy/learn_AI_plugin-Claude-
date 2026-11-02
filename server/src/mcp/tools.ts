@@ -101,10 +101,54 @@ export function registerTools(server: McpServer, mentor: Mentor, cwd: () => stri
     {
       title: 'Recommend the next step',
       description: 'Prioritised next steps: overdue reviews first, then the active stage, open misconceptions, the next available topic and blocked topics. Use when opening a session or when a stage/topic is finished.',
-      inputSchema: { subject: subjectId.optional(), limit: z.number().int().min(1).max(10).optional() },
+      inputSchema: {
+        subject: subjectId.optional(),
+        limit: z.number().int().min(1).max(10).optional(),
+        focus: z.enum(['all', 'review']).optional().describe('"review" = only due reviews, interleaved across subjects (for a review session).'),
+      },
       annotations: { readOnlyHint: true },
     },
     (args) => run((r) => `${(r.recommendations as unknown[]).length} recommendation(s) for ${r.today}.`, () => mentor.next(args)),
+  );
+
+  server.registerTool(
+    'mentor_insights',
+    {
+      title: 'Analyse learning patterns',
+      description:
+        'Patterns across topics that should change how you teach: a misconception shared by several topics, recurring errors, recent failures rooted in a weak prerequisite, regressions, dependence on hints, stalled stages, review backlog, provisional levels the plan depends on. Each comes with a suggestion. Use when opening a session after a break, before planning, and in /status.',
+      inputSchema: { subject: subjectId.optional() },
+      annotations: { readOnlyHint: true },
+    },
+    (args) => run((r) => `${(r.insights as unknown[]).length} insight(s).`, () => mentor.insights(args)),
+  );
+
+  server.registerTool(
+    'mentor_progress',
+    {
+      title: 'Progress map',
+      description:
+        'An ASCII progress map per subject: topics in path order with level bars, provisional marks, the current stage, due reviews, open misconceptions and missing prerequisites. Show it as-is (in a code block) in /status or when the learner asks how they are doing.',
+      inputSchema: { subject: subjectId.optional() },
+      annotations: { readOnlyHint: true },
+    },
+    (args) => run(() => 'Progress map (show it in a code block):', () => mentor.progress(args)),
+  );
+
+  server.registerTool(
+    'mentor_log_session',
+    {
+      title: 'Log a session summary',
+      description:
+        'Save a 1-3 sentence summary of this learning session and the planned next step, so the next session can continue naturally. Use when the learner wraps up, after finishing a topic, or after a long session. Facts about learning only.',
+      inputSchema: {
+        summary: z.string().min(1).max(500).describe('What was learned or practised, what was hard.'),
+        next_step: z.string().max(200).optional().describe('What to do next time, e.g. "Practise *p in functions; review references".'),
+        topics: z.array(z.string()).max(10).optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    (args) => run(() => 'Session summary saved.', () => mentor.logSession(args)),
   );
 
   server.registerTool(

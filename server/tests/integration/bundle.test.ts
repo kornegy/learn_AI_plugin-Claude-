@@ -31,7 +31,7 @@ describe('dist/mentor-mcp.mjs over stdio', () => {
     try {
       expect(client.getInstructions()).toMatch(/evidence-based record/);
       const { tools } = await client.listTools();
-      expect(tools).toHaveLength(18);
+      expect(tools).toHaveLength(21);
       const call = async (name: string, args: Record<string, unknown>) =>
         (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
       expect((await call('mentor_init', { workspace_path: base })).isError).toBeFalsy();

@@ -84,7 +84,7 @@ describe('commands, agents, output styles', () => {
 describe('cross references', () => {
   it('every mentor_* tool mentioned in content exists', async () => {
     const tools = new Set(toolNames());
-    expect(tools.size).toBe(18);
+    expect(tools.size).toBe(21);
     const files = [...(await mdFiles(path.join(ROOT, 'skills'))), ...(await mdFiles(path.join(ROOT, 'commands'))), ...(await mdFiles(path.join(ROOT, 'output-styles')))];
     for (const f of files) {
       const text = await fs.readFile(f, 'utf8');

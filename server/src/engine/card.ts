@@ -6,6 +6,7 @@ import { dayDiff, localDay, localTime } from '../core/clock.js';
 import { levelLabel, type LabelLanguage } from '../core/labels.js';
 import type { Config, Preferences, Profile, Subject, SubjectPath, Topic, TopicPath } from '../schema/index.js';
 import { activeStage, dueReviews } from './recommender.js';
+import type { Insight } from './insights.js';
 
 export const CARD_BUDGET = 4000;
 
@@ -19,8 +20,9 @@ export interface CardInput {
   topics: Topic[];
   subjectPaths: SubjectPath[];
   topicPaths: TopicPath[];
-  lastSession: { day: string; notes: string[] } | null;
+  lastSession: { day: string; notes: string[]; summary?: string; next_step?: string } | null;
   problems: string[];
+  insights?: Insight[];
   subject?: string;
 }
 
@@ -108,12 +110,15 @@ export function buildCard(input: CardInput, budget = CARD_BUDGET): string {
     const gap = dayDiff(input.lastSession.day, today);
     const notes = input.lastSession.notes.slice(0, 2).map((n) => quote(n, 90)).join('; ');
     add(`Last learning activity: ${input.lastSession.day} (${gap} day(s) ago)${notes ? ` — ${notes}` : ''}`);
+    if (input.lastSession.summary) add(`Last session summary: ${quote(input.lastSession.summary, 240)}`);
+    if (input.lastSession.next_step) add(`Planned next step: ${quote(input.lastSession.next_step, 160)}`);
   }
 
   const prefs: string[] = [];
   for (const o of input.preferences?.observed.slice(-3) ?? []) prefs.push(quote(o.note, 90));
   if (input.preferences?.pace) prefs.push(`pace ${input.preferences.pace}`);
   if (prefs.length) add(`Observed preferences: ${prefs.join('; ')}`);
+  for (const ins of (input.insights ?? []).filter((i) => i.severity === 'high').slice(0, 2)) add(`Insight: ${quote(ins.finding, 220)}`);
   if (input.profile?.goals.length) add(`Goals: ${input.profile.goals.slice(0, 3).map((g) => quote(g, 80)).join('; ')}`);
 
   add('Details and progress recording are available through the mentor_* tools.');

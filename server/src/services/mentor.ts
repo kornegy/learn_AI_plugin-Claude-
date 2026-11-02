@@ -32,6 +32,10 @@ import { buildCard } from '../engine/card.js';
 import { freshness } from '../engine/freshness.js';
 import { assertTransition, topologicalOrder, unmetCriteria } from '../engine/paths.js';
 import { recommend } from '../engine/recommender.js';
+import { analyze, type Insight } from '../engine/insights.js';
+import { renderProgress } from '../engine/progress.js';
+import type { EvidenceRecord } from '../engine/evidence.js';
+import type { JournalEvent } from '../schema/index.js';
 import { searchTopics } from '../engine/search.js';
 import { appendToSection, getSection, newDoc, setSection } from '../storage/markdown.js';
 import { DIRS, isInside, realOrResolved, rel } from '../storage/root.js';
@@ -198,9 +202,16 @@ export class Mentor {
     const [topics, subjects, paths] = await Promise.all([loadTopics(this.ctx), loadSubjects(this.ctx), loadPaths(this.ctx)]);
     const profile = await this.safeRead(rel.profile(), ProfileSchema);
     const preferences = await this.safeRead(rel.preferences(), PreferencesSchema);
-    const lastSession = await this.lastSession();
+    const { events } = await this.store.journal.readAll();
+    const lastSession = this.lastSession(events);
     const workspace = input.cwd ? await this.workspaceFor(input.cwd, config) : null;
     const problems = [...topics.problems, ...subjects.problems, ...paths.problems, ...profile.problems, ...preferences.problems];
+    const insights = this.computeInsights(
+      events,
+      topics.items.map((t) => t.data),
+      paths.topicPaths.items.map((p) => p.data),
+      input.subject,
+    );
     const cardInput = {
       now: this.ctx.clock.now(),
       workspace,
@@ -213,6 +224,7 @@ export class Mentor {
       topicPaths: paths.topicPaths.items.map((p) => p.data),
       lastSession,
       problems,
+      insights,
       ...(input.subject ? { subject: input.subject } : {}),
     };
     return {
@@ -239,20 +251,90 @@ export class Mentor {
     }
   }
 
-  private async lastSession(): Promise<{ day: string; notes: string[] } | null> {
-    const { events } = await this.store.journal.readAll();
+  private lastSession(events: JournalEvent[]): { day: string; notes: string[]; summary?: string; next_step?: string } | null {
     const evidence = events.filter((e) => e.type === 'evidence_recorded');
+    const log = events.filter((e) => e.type === 'session_logged').at(-1);
     const last = evidence.at(-1);
-    if (!last) return null;
+    if (!last && !log) return null;
+    const day = [last?.day, log?.day].filter((d): d is string => !!d).sort().at(-1)!;
     const notes = evidence
-      .filter((e) => e.day === last.day)
+      .filter((e) => e.day === day)
       .map((e) => (typeof e.data.note === 'string' && e.data.note ? `${e.topic}: ${e.data.note}` : ''))
       .filter(Boolean)
       .slice(-2);
-    return { day: last.day, notes };
+    const out: { day: string; notes: string[]; summary?: string; next_step?: string } = { day, notes };
+    // A session summary is shown only if it is not older than the last evidence (otherwise it is stale).
+    if (log && (!last || log.day >= last.day)) {
+      if (typeof log.data.summary === 'string') out.summary = log.data.summary;
+      if (typeof log.data.next_step === 'string' && log.data.next_step) out.next_step = log.data.next_step;
+    }
+    return out;
   }
 
-  async next(input: { subject?: string; limit?: number }): Promise<Record<string, unknown>> {
+  private evidenceByTopic(events: JournalEvent[], topicIds: string[]): Map<string, EvidenceRecord[]> {
+    return new Map(topicIds.map((id) => [id, topicHistory(events, id).evidence]));
+  }
+
+  private computeInsights(events: JournalEvent[], topics: Topic[], topicPaths: TopicPath[], subject?: string): Insight[] {
+    return analyze({
+      today: this.today(),
+      topics,
+      topicPaths,
+      evidenceByTopic: this.evidenceByTopic(events, topics.map((t) => t.id)),
+      ...(subject ? { subject } : {}),
+    });
+  }
+
+  async insights(input: { subject?: string }): Promise<Record<string, unknown>> {
+    await this.store.assertInitialized();
+    if (input.subject) assertSlug('subject', input.subject);
+    const [topics, paths] = await Promise.all([loadTopics(this.ctx), loadPaths(this.ctx)]);
+    const { events } = await this.store.journal.readAll();
+    const insights = this.computeInsights(
+      events,
+      topics.items.map((t) => t.data),
+      paths.topicPaths.items.map((p) => p.data),
+      input.subject,
+    );
+    return { today: this.today(), insights, problems: [...topics.problems, ...paths.problems] };
+  }
+
+  async progress(input: { subject?: string }): Promise<Record<string, unknown>> {
+    await this.store.assertInitialized();
+    const config = await this.config();
+    const [topics, subjects, paths] = await Promise.all([loadTopics(this.ctx), loadSubjects(this.ctx), loadPaths(this.ctx)]);
+    const ids = input.subject
+      ? [assertSlug('subject', input.subject)]
+      : [...new Set([...subjects.items.map((s) => s.data.id), ...topics.items.map((t) => t.data.subject)])].sort();
+    const maps = ids.map((subject) =>
+      renderProgress({
+        subject,
+        subjectDoc: subjects.items.find((s) => s.data.id === subject)?.data ?? null,
+        path: paths.subjectPaths.items.find((p) => p.data.subject === subject)?.data ?? null,
+        topics: topics.items.map((t) => t.data).filter((t) => t.subject === subject),
+        topicPaths: paths.topicPaths.items.map((p) => p.data).filter((p) => p.topic.startsWith(`${subject}/`)),
+        today: this.today(),
+        lang: config.label_language,
+      }),
+    );
+    return { map: maps.join('\n\n') || 'No subjects yet.', subjects: ids, problems: [...topics.problems, ...subjects.problems, ...paths.problems] };
+  }
+
+  async logSession(input: { summary: string; next_step?: string; topics?: string[] }): Promise<Record<string, unknown>> {
+    await this.store.assertInitialized();
+    const summary = input.summary.trim();
+    if (!summary) throw new MentorError('E_INVALID_INPUT', 'The session summary must not be empty.');
+    for (const t of input.topics ?? []) parseQualifiedId('topic', t);
+    assertNoSecrets({ summary, next_step: input.next_step });
+    return this.store.lock(async () => {
+      const data: Record<string, unknown> = { summary: summary.slice(0, 500), topics: input.topics ?? [] };
+      if (input.next_step?.trim()) data.next_step = input.next_step.trim().slice(0, 200);
+      await this.store.journal.append(makeEvents(this.ctx, [{ type: 'session_logged', data }]));
+      return { logged: true, day: this.today() };
+    });
+  }
+
+  async next(input: { subject?: string; limit?: number; focus?: 'all' | 'review' }): Promise<Record<string, unknown>> {
     await this.store.assertInitialized();
     if (input.subject) assertSlug('subject', input.subject);
     const [topics, paths] = await Promise.all([loadTopics(this.ctx), loadPaths(this.ctx)]);
@@ -263,6 +345,7 @@ export class Mentor {
       topicPaths: paths.topicPaths.items.map((p) => p.data),
       ...(input.subject ? { subject: input.subject } : {}),
       limit: input.limit ?? 5,
+      focus: input.focus ?? 'all',
     });
     return { today: this.today(), recommendations: recs, problems: [...topics.problems, ...paths.problems] };
   }
@@ -497,6 +580,9 @@ export class Mentor {
         review_due: after.review?.due ?? null,
         misconception_changes: changes,
         next_evidence_needed: nextEvidenceNeeded(after, config),
+        ...(after.regressed_on && after.regressed_on !== before.regressed_on
+          ? { suggestion: 'The check showed forgetting. Re-explain briefly in a new way, then insert a short reinforcement stage with mentor_plan_topic (mode "insert").' }
+          : {}),
       };
     });
   }

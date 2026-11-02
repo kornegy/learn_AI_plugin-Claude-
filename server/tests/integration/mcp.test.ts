@@ -13,13 +13,13 @@ afterEach(async () => {
 const read = (h: Harness, rel: string) => fs.readFile(path.join(h.root, rel), 'utf8');
 
 describe('MCP server: tool surface', () => {
-  it('lists all 18 tools with descriptions and annotations', async () => {
+  it('lists all 21 tools with descriptions and annotations', async () => {
     h = await makeHarness();
     const { tools } = await h.client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual(
       [
         'mentor_delete', 'mentor_doctor', 'mentor_export', 'mentor_find_sources', 'mentor_find_topics', 'mentor_get_context',
-        'mentor_get_topic', 'mentor_init', 'mentor_next', 'mentor_plan_path', 'mentor_plan_topic', 'mentor_record_evidence',
+        'mentor_get_topic', 'mentor_init', 'mentor_insights', 'mentor_log_session', 'mentor_next', 'mentor_plan_path', 'mentor_plan_topic', 'mentor_progress', 'mentor_record_evidence',
         'mentor_save_source', 'mentor_set_level', 'mentor_settings', 'mentor_update_profile', 'mentor_update_stage', 'mentor_upsert_topic',
       ].sort(),
     );
@@ -393,5 +393,64 @@ describe('scenario 13: export and delete', () => {
     const step1 = await h.call('mentor_delete', { scope: 'all', purge: true });
     await h.call('mentor_delete', { scope: 'all', purge: true, confirmation_token: step1.json.token });
     expect(await fs.readdir(h.root)).toEqual([]);
+  });
+});
+
+describe('phase 4: continuity, insights, reviews, progress', () => {
+  it('logs a session summary that the next session sees, until newer evidence makes it stale', async () => {
+    h = await makeHarness();
+    await seedCpp(h);
+    await h.call('mentor_record_evidence', { topic_id: 'cpp/pointers', events: [{ kind: 'explanation', outcome: 'success' }] });
+    const r = await h.call('mentor_log_session', { summary: 'Explained why pointers exist; *p still shaky', next_step: 'Practise *p reads and writes', topics: ['cpp/pointers'] });
+    expect(r.isError).toBe(false);
+    const later = new Mentor(h.root, fixedClock('2026-10-05T10:00:00Z'));
+    const card = (await later.getContext({ cwd: h.workspace })).card;
+    expect(card).toContain('Last session summary: "Explained why pointers exist; *p still shaky"');
+    expect(card).toContain('Planned next step: "Practise *p reads and writes"');
+    await later.recordEvidence({ topic_id: 'cpp/variables', events: [{ kind: 'recall', outcome: 'success' }] });
+    expect((await later.getContext({ cwd: h.workspace })).card).not.toContain('Last session summary');
+    expect((await h.call('mentor_log_session', { summary: 'password: hunter2hunter2' })).text).toMatch(/E_SECRET_DETECTED/);
+  });
+
+  it('reports a misconception shared by two topics as a high-severity insight, also in the card', async () => {
+    h = await makeHarness();
+    await seedCpp(h);
+    const m = { id: 'addr-vs-value', description: 'Confuses &x and *p' };
+    await h.call('mentor_upsert_topic', { topic_id: 'cpp/references', title: 'Ссылки' });
+    await h.call('mentor_record_evidence', { topic_id: 'cpp/pointers', events: [{ kind: 'application', outcome: 'fail', misconception: m }] });
+    await h.call('mentor_record_evidence', { topic_id: 'cpp/references', events: [{ kind: 'recall', outcome: 'fail', misconception: m }] });
+    const r = await h.call('mentor_insights', {});
+    const ins = r.json.insights as { type: string; topics: string[] }[];
+    expect(ins[0]).toMatchObject({ type: 'cross_topic_misconception', topics: ['cpp/pointers', 'cpp/references'] });
+    expect((await h.call('mentor_get_context')).json.card).toMatch(/Insight: "Misconception 'addr-vs-value'/);
+  });
+
+  it('suggests reinforcement after a regression and interleaves review sessions', async () => {
+    h = await makeHarness();
+    await seedCpp(h);
+    await h.call('mentor_upsert_topic', { topic_id: 'sql/joins', title: 'JOIN' });
+    for (const t of ['cpp/variables', 'sql/joins', 'cpp/memory-basics']) {
+      await h.call('mentor_record_evidence', { topic_id: t, events: [{ kind: 'explanation', outcome: 'success' }, { kind: 'application', outcome: 'success' }] });
+    }
+    h.clock.advanceDays(30);
+    const r = await h.call('mentor_record_evidence', { topic_id: 'cpp/variables', events: [{ kind: 'recall', outcome: 'fail', context: 'review' }] });
+    expect(r.json.suggestion).toMatch(/reinforcement stage/);
+    const next = (await h.call('mentor_next')).json.recommendations as { type: string; topic: string }[];
+    expect(next.some((x) => x.type === 'reinforce' && x.topic === 'cpp/variables')).toBe(true);
+    const reviews = (await h.call('mentor_next', { focus: 'review' })).json.recommendations as { topic: string }[];
+    const subjects = reviews.map((x) => x.topic.split('/')[0]);
+    expect(subjects.slice(0, 2).sort()).toEqual(['cpp', 'sql']); // interleaved
+  });
+
+  it('renders a progress map per subject', async () => {
+    h = await makeHarness();
+    await seedCpp(h);
+    await h.call('mentor_record_evidence', { topic_id: 'cpp/variables', events: [{ kind: 'explanation', outcome: 'success' }] });
+    const r = await h.call('mentor_progress', { subject: 'cpp' });
+    const map = r.json.map as string;
+    expect(map.split('\n')[0]).toBe('cpp — Write small systems programs');
+    expect(map).toMatch(/███░ 3\? variables/);
+    expect(map).toMatch(/pointers .*▶ 1\/3 Зачем нужны указатели/);
+    expect(map).toContain('нужно: memory-basics');
   });
 });
