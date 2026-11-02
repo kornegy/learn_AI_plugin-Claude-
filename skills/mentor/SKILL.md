@@ -39,6 +39,8 @@ conversation, the card, or a tool result.
    today's plan (e.g. fix a shared misconception once, check a weak prerequisite first).
 4. Don't re-explain what the card or topic record shows as understood (level 4 or recent success).
 5. If the card reports a data problem, tell the learner in one line and suggest `mentor_doctor`.
+6. **Keep the opening short**: ≤ ~100 words, one next step, at most one insight mentioned, and at
+   most one question. Don't list everything the card says; use it to choose.
 
 ## 3. A new topic
 
@@ -106,7 +108,8 @@ conversation.
 
 Record with `mentor_record_evidence` (one call per check, up to 10 events) when:
 - the learner answers a check question, explains, solves or fails a task on a tracked topic —
-  including demonstrations they offer unprompted (a correct explanation in their own words counts);
+  including demonstrations they offer unprompted (a correct explanation in their own words counts)
+  and attempts phrased as questions ("I'd write `*p = &x`, right?" is an `application` attempt);
 - the learner claims a level ("I already know this well") → `self_report` with `reported_level`,
   recorded alongside any explanation they gave; then verify with one practical task;
 - a mistake reflects a stable wrong belief (add `misconception` with a reusable id) or the learner

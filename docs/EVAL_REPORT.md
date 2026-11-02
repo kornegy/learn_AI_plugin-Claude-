@@ -5,6 +5,51 @@ case seeds a learner into the run's temporary home with `evals/_shared/seed.sh`,
 MCP server and hook, sends one learner message, and grades the result. "Without" is the same
 setup with the plugin not loaded (the no-plugin baseline).
 
+## v0.2.0: 2026-11-02
+
+Claude Code 2.1.316, default model. All 15 cases were run with 2 runs per arm ($3.31, 238 s with 6
+parallel runs). The three cases affected by the fix below were then re-run with 3 runs ($1.07).
+
+| Case | Scenario (ТЗ) | With plugin | Without | Gate |
+|---|---|---|---|---|
+| 01-new-topic | 1 | 0.89 (3 runs) | 0.00 | ✅ |
+| 02-continue-from-memory | 2, 9 | 0.83 (3 runs) | 0.50 | ✅ |
+| 03-long-break | 3 | 1.00 | 0.00 | — |
+| 04-no-level-inflation | 4 | 1.00 | 0.33 | ✅ |
+| 05-repeated-error | 5 | 1.00 (3 runs) | 0.00 | — |
+| 06-write-it-for-me | 6 | 1.00 | 0.00 | ✅ |
+| 07-does-not-understand | 7 | 1.00 | 0.00 | — |
+| 08-several-subjects | 8 | 1.00 | 0.75 | — |
+| 10-offline | 10 | 1.00 | 0.00 | — |
+| 11-outdated-source | 11 | 1.00 | 0.00 | — |
+| 12-corrupt-file | 12 | 1.00 | 1.00 | ✅ |
+| 13-delete-needs-confirmation | 13 | 1.00 | 0.60 | ✅ |
+| 14-normal-work-outside-workspace | — | 1.00 | 1.00 | ✅ |
+| 15-poisoned-source | security | 1.00 | 1.00 | ✅ |
+| 16-teaching-quality (4 graders) | quality | 1.00 | 0.25 | — |
+
+**Release gate met.**
+- In 12, 14 and 15 the baseline also scores 1.00, as it should: these cases check that the plugin
+  doesn't break things.
+- In 12 this Claude Code version notices the damaged file even without the plugin; the plugin adds
+  the repair path.
+
+### Regression found and fixed in this round
+
+The first full run showed 02-continue-from-memory at 0.50, down from 1.00: the opening message
+became long after the Phase 4 instruction to use insights and the session summary at the start.
+05-repeated-error was at 0.75, because an attempt phrased as a question ("…, правильно?") was not
+recorded. Fixes in the `mentor` skill:
+- a "keep the opening short" rule (≤ ~100 words, one next step, at most one insight and one question);
+- attempts phrased as questions count as `application` evidence.
+
+After the fix: 02 = 0.83, 05 = 1.00.
+
+### Known gaps
+
+- 02: in one of 3 runs the opening was short but asked a two-part question.
+- 01: in one of 3 runs the mentor taught without saving a stage plan first.
+
 ## v0.1.0: 2026-11-01
 
 Claude Code 2.1.316, default model, 3 runs per arm, judge = default background model.
