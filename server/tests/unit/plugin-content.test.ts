@@ -10,7 +10,8 @@ import type { Mentor } from '../../src/services/mentor.js';
 const ROOT = path.resolve(__dirname, '../../..');
 const PORTABLE_SKILL_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
 
-function frontmatter(text: string): Record<string, unknown> {
+function frontmatter(raw: string): Record<string, unknown> {
+  const text = raw.replace(/\r\n/g, '\n'); // tolerate CRLF checkouts
   const m = /^---\n([\s\S]*?)\n---\n/.exec(text);
   if (!m) throw new Error('no frontmatter');
   return YAML.parse(m[1]!) as Record<string, unknown>;
@@ -42,7 +43,7 @@ describe('skills', async () => {
 
   it.each(skillDirs)('%s: portable frontmatter, size limits, working links', async (dir) => {
     const file = path.join(ROOT, 'skills', dir, 'SKILL.md');
-    const text = await fs.readFile(file, 'utf8');
+    const text = (await fs.readFile(file, 'utf8')).replace(/\r\n/g, '\n');
     const fm = frontmatter(text);
     expect(fm.name).toBe(dir);
     for (const key of Object.keys(fm)) expect(PORTABLE_SKILL_KEYS.has(key), `non-portable key "${key}"`).toBe(true);

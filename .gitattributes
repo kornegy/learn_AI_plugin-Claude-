@@ -1,0 +1,5 @@
+# Keep LF everywhere: plugin content (skills, commands, frontmatter) and the committed bundles
+# must be byte-identical on every OS, and Windows checkouts would otherwise convert to CRLF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
