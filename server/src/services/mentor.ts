@@ -57,6 +57,7 @@ import {
   renderTopicServerSections,
   today,
   topicHistory,
+  JournalIndex,
   type Ctx,
   type NewEvent,
 } from './context.js';
@@ -282,7 +283,8 @@ export class Mentor {
   }
 
   private evidenceByTopic(events: JournalEvent[], topicIds: string[]): Map<string, EvidenceRecord[]> {
-    return new Map(topicIds.map((id) => [id, topicHistory(events, id).evidence]));
+    const index = new JournalIndex(events);
+    return new Map(topicIds.map((id) => [id, index.history(id).evidence]));
   }
 
   private computeInsights(events: JournalEvent[], topics: Topic[], topicPaths: TopicPath[], subject?: string): Insight[] {

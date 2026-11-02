@@ -79,17 +79,65 @@ export function assertNoSecrets(fields: Record<string, string | undefined | null
 
 // ------------------------------------------------------------------ journal views
 
-/** Events after the most recent delete that covers the given topic/subject. */
-function deletionCutoff(events: JournalEvent[], topicId: string): number | null {
-  const subject = topicId.split('/')[0];
-  let cutoff: number | null = null;
-  for (const e of events) {
-    if (e.type !== 'delete') continue;
-    const scope = e.data.scope as string | undefined;
-    const target = e.data.target as string | undefined;
-    if (scope === 'all' || (scope === 'subject' && target === subject) || (scope === 'topic' && target === topicId)) cutoff = instant(e.ts);
+/**
+ * Journal grouped by topic, built in one pass. Use it whenever histories of many topics are
+ * needed (card, insights, doctor): scanning all events per topic is O(topics × events).
+ */
+export class JournalIndex {
+  private readonly byTopic = new Map<string, JournalEvent[]>();
+  private readonly deletes: JournalEvent[] = [];
+
+  constructor(events: JournalEvent[]) {
+    for (const e of events) {
+      if (e.type === 'delete') this.deletes.push(e);
+      if (!e.topic) continue;
+      const list = this.byTopic.get(e.topic);
+      if (list) list.push(e);
+      else this.byTopic.set(e.topic, [e]);
+    }
   }
-  return cutoff;
+
+  topicIds(): string[] {
+    return [...this.byTopic.keys()];
+  }
+
+  /** Instant of the latest delete covering this topic (topic, its subject, or everything). */
+  private cutoff(topicId: string): number | null {
+    const subject = topicId.split('/')[0];
+    let cutoff: number | null = null;
+    for (const e of this.deletes) {
+      const scope = e.data.scope as string | undefined;
+      const target = e.data.target as string | undefined;
+      if (scope === 'all' || (scope === 'subject' && target === subject) || (scope === 'topic' && target === topicId)) {
+        const t = instant(e.ts);
+        if (cutoff === null || t > cutoff) cutoff = t;
+      }
+    }
+    return cutoff;
+  }
+
+  history(topicId: string): TopicHistory {
+    const cutoff = this.cutoff(topicId);
+    const evidence: EvidenceRecord[] = [];
+    const overrides: OverrideRecord[] = [];
+    let meta: TopicHistory['meta'] = null;
+    for (const e of this.byTopic.get(topicId) ?? []) {
+      if (cutoff !== null && instant(e.ts) <= cutoff) continue;
+      if (e.type === 'evidence_recorded') {
+        const parsed = EvidenceDataSchema.safeParse(e.data);
+        if (parsed.success) evidence.push({ ...parsed.data, id: e.id, ts: e.ts, day: e.day });
+      } else if (e.type === 'override') {
+        const level = e.data.level;
+        if (level === 1 || level === 2 || level === 3 || level === 4) {
+          overrides.push({ id: e.id, ts: e.ts, day: e.day, level, reason: String(e.data.reason ?? '') });
+        }
+      } else if (e.type === 'topic_created' || e.type === 'topic_updated') {
+        meta = { ...(meta ?? {}), ...(e.data as object), ...(e.type === 'topic_created' ? { created: e.day } : {}) };
+      }
+    }
+    evidence.sort(byTime);
+    return { evidence, overrides, meta };
+  }
 }
 
 export interface TopicHistory {
@@ -98,32 +146,10 @@ export interface TopicHistory {
   meta: { title?: string; aliases?: string[]; prerequisites?: string[]; created?: string } | null;
 }
 
-export function topicHistory(events: JournalEvent[], topicId: string): TopicHistory {
-  const cutoff = deletionCutoff(events, topicId);
-  const evidence: EvidenceRecord[] = [];
-  const overrides: OverrideRecord[] = [];
-  let meta: TopicHistory['meta'] = null;
-  for (const e of events) {
-    if (e.topic !== topicId) continue;
-    if (cutoff !== null && instant(e.ts) <= cutoff) continue;
-    if (e.type === 'evidence_recorded') {
-      const parsed = EvidenceDataSchema.safeParse(e.data);
-      if (parsed.success) evidence.push({ ...parsed.data, id: e.id, ts: e.ts, day: e.day });
-    } else if (e.type === 'override') {
-      const level = e.data.level;
-      if (level === 1 || level === 2 || level === 3 || level === 4) {
-        overrides.push({ id: e.id, ts: e.ts, day: e.day, level, reason: String(e.data.reason ?? '') });
-      }
-    } else if (e.type === 'topic_created' || e.type === 'topic_updated') {
-      meta = {
-        ...(meta ?? {}),
-        ...(e.data as object),
-        ...(e.type === 'topic_created' ? { created: e.day } : {}),
-      };
-    }
-  }
-  evidence.sort(byTime);
-  return { evidence, overrides, meta };
+/** History of one topic. Pass a JournalIndex when you need many topics. */
+export function topicHistory(source: JournalEvent[] | JournalIndex, topicId: string): TopicHistory {
+  const index = source instanceof JournalIndex ? source : new JournalIndex(source.filter((e) => e.topic === topicId || e.type === 'delete'));
+  return index.history(topicId);
 }
 
 /** Recomputes all derived topic fields from its history (ARCHITECTURE §6-§7). */
@@ -212,22 +238,24 @@ export function emptyTopicDoc(t: Topic, lang: LabelLanguage): MarkdownDoc {
 // ------------------------------------------------------------------ loading collections
 
 export interface Collection<T> {
-  items: LoadedDoc<T>[];
+  items: { data: T; relPath: string }[];
   problems: string[];
 }
 
-async function loadAll<T>(store: Store, relPaths: string[], load: (p: string) => Promise<LoadedDoc<T> | null>): Promise<Collection<T>> {
-  const items: LoadedDoc<T>[] = [];
+/** Bulk load of frontmatter through the store's cache; problems are collected, not thrown. */
+async function loadAll<T>(store: Store, relPaths: string[], schema: import('zod').ZodType<T>): Promise<Collection<T>> {
+  const items: { data: T; relPath: string }[] = [];
   const problems: string[] = [];
   for (const p of relPaths) {
     try {
-      const d = await load(p);
-      if (d) items.push(d);
+      const d = await store.readDataCached(p, schema);
+      if (d) items.push(d as { data: T; relPath: string });
     } catch (e) {
       if (e instanceof MentorError) problems.push(`${p}: ${e.code}`);
       else throw e;
     }
   }
+  await store.flushCache();
   return { items, problems };
 }
 
@@ -235,11 +263,11 @@ export async function loadTopics(ctx: Ctx, subject?: string): Promise<Collection
   const subjects = subject ? [subject] : await ctx.store.listSubjectsIn(DIRS.knowledge);
   const paths: string[] = [];
   for (const s of subjects) paths.push(...(await ctx.store.listDocs(`${DIRS.knowledge}/${s}`)));
-  return loadAll(ctx.store, paths, (p) => ctx.store.readDoc(p, TopicSchema));
+  return loadAll(ctx.store, paths, TopicSchema);
 }
 
 export async function loadSubjects(ctx: Ctx) {
-  return loadAll(ctx.store, await ctx.store.listDocs(DIRS.subjects), (p) => ctx.store.readDoc(p, SubjectSchema));
+  return loadAll(ctx.store, await ctx.store.listDocs(DIRS.subjects), SubjectSchema);
 }
 
 export async function loadPaths(ctx: Ctx, subject?: string) {
@@ -249,16 +277,28 @@ export async function loadPaths(ctx: Ctx, subject?: string) {
   for (const s of subjects) {
     for (const p of await ctx.store.listDocs(`${DIRS.paths}/${s}`)) (p.endsWith('/_path.md') ? subjectPaths : topicPaths).push(p);
   }
-  const sp = await loadAll(ctx.store, subjectPaths, (p) => ctx.store.readDoc(p, SubjectPathSchema));
-  const tp = await loadAll(ctx.store, topicPaths, (p) => ctx.store.readDoc(p, TopicPathSchema));
+  const sp = await loadAll(ctx.store, subjectPaths, SubjectPathSchema);
+  const tp = await loadAll(ctx.store, topicPaths, TopicPathSchema);
   return { subjectPaths: sp, topicPaths: tp, problems: [...sp.problems, ...tp.problems] };
 }
 
+/** Sources need their key points (body), so they are read in full. */
 export async function loadSources(ctx: Ctx, subject?: string) {
   const subjects = subject ? [subject] : await ctx.store.listSubjectsIn(DIRS.research);
-  const paths: string[] = [];
-  for (const s of subjects) paths.push(...(await ctx.store.listDocs(`${DIRS.research}/${s}`)));
-  return loadAll(ctx.store, paths, (p) => ctx.store.readDoc(p, SourceSchema));
+  const items: LoadedDoc<import('../schema/index.js').Source>[] = [];
+  const problems: string[] = [];
+  for (const s of subjects) {
+    for (const p of await ctx.store.listDocs(`${DIRS.research}/${s}`)) {
+      try {
+        const d = await ctx.store.readDoc(p, SourceSchema);
+        if (d) items.push(d);
+      } catch (e) {
+        if (e instanceof MentorError) problems.push(`${p}: ${e.code}`);
+        else throw e;
+      }
+    }
+  }
+  return { items, problems };
 }
 
 export async function readTopic(ctx: Ctx, subject: string, slug: string): Promise<LoadedDoc<Topic>> {

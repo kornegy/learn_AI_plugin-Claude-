@@ -33,6 +33,7 @@ import {
   renderTopicServerSections,
   today,
   topicHistory,
+  JournalIndex,
   type Ctx,
 } from './context.js';
 import type { Mentor } from './mentor.js';
@@ -192,6 +193,7 @@ export class DataOps {
       // A "delete" event is also the tombstone that stops replay and doctor from resurrecting
       // trashed items; after a purge the events are gone, so a "purge" record is enough.
       await this.store.journal.append(makeEvents(this.ctx, [{ type: purge ? 'purge' : 'delete', data: { scope: input.scope, target, removed_events: removedEvents } }]));
+      await this.store.dropCache();
       if (input.scope === 'topic' && target) await this.detachTopic(target);
       if (input.scope === 'all') await this.mentor.init({});
       return { deleted: input.scope, target, purge, trash: movedTo, removed_journal_events: removedEvents };
@@ -218,7 +220,9 @@ export class DataOps {
     for (const t of topics.items) {
       if (!t.data.prerequisites.includes(topicId)) continue;
       const { subject: s, slug } = parseQualifiedId('topic', t.data.id);
-      await this.store.writeDoc(rel.topic(s, slug), TopicSchema, { ...t.data, prerequisites: t.data.prerequisites.filter((p) => p !== topicId) }, t.doc);
+      const full = await this.store.readDoc(rel.topic(s, slug), TopicSchema);
+      if (!full) continue;
+      await this.store.writeDoc(rel.topic(s, slug), TopicSchema, { ...full.data, prerequisites: full.data.prerequisites.filter((p) => p !== topicId) }, full.doc);
     }
     await this.mentor.refreshSubjectOverview(subject);
     await this.mentor.refreshSubjectPathOverview(subject);
@@ -234,6 +238,8 @@ export class DataOps {
       const problems: { path: string; problem: string; action: string }[] = [];
       let checked = 0;
       const { events, badLines, oversized } = await this.store.journal.readAll();
+      const index = new JournalIndex(events);
+      const config = await this.store.readConfig().catch(() => ConfigSchema.parse({}));
       for (const f of oversized) {
         problems.push({ path: `${DIRS.journal}/${f}`, problem: 'journal file is too large to load and was skipped', action: 'move it aside manually after checking it' });
       }
@@ -283,13 +289,12 @@ export class DataOps {
           if (d.kind === 'topic') {
             // Check that derived fields agree with the journal.
             const t = loaded.data as Topic;
-            const config = await this.store.readConfig();
-            const projected = projectTopic(t, topicHistory(events, t.id), config);
+            const history = index.history(t.id);
+            const projected = projectTopic(t, history, config);
             if (projected.level !== t.level || JSON.stringify(projected.review) !== JSON.stringify(t.review)) {
               problems.push({ path: d.relPath, problem: 'level or review out of sync with the journal', action: repair ? 'recomputed' : 'run with repair: true' });
               if (repair) {
-                const { events: all } = await this.store.journal.readAll();
-                renderTopicServerSections(loaded.doc, projected, topicHistory(all, t.id).evidence, labelLang(config));
+                renderTopicServerSections(loaded.doc, projected, history.evidence, labelLang(config));
                 await this.store.writeDoc(d.relPath, TopicSchema, projected, loaded.doc);
               }
             }
@@ -309,7 +314,7 @@ export class DataOps {
       const knownTopics = new Set(events.filter((e) => e.type === 'topic_created' && e.topic).map((e) => e.topic!));
       for (const id of knownTopics) {
         const { subject, slug } = parseQualifiedId('topic', id);
-        const h = topicHistory(events, id);
+        const h = index.history(id);
         if (!h.meta) continue; // deleted (no events after the tombstone)
         if (await this.store.exists(rel.topic(subject, slug))) continue;
         checked++;

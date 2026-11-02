@@ -93,3 +93,28 @@ describe('security review regressions', () => {
     expect(JSON.stringify(doc.json)).toMatch(/2025-01\.jsonl.*too large/);
   });
 });
+
+describe('frontmatter cache (Phase 5 performance)', () => {
+  it('serves fresh data after atomic writes and in-place edits, and is dropped on deletion', async () => {
+    h = await makeHarness();
+    await seedCpp(h);
+    const { loadTopics } = await import('../../src/services/context.js');
+    const title = async () => (await loadTopics(h.mentor.ctx, 'cpp')).items.find((t) => t.data.id === 'cpp/pointers')!.data.title;
+    expect(await title()).toBe('Указатели');
+    await h.call('mentor_upsert_topic', { topic_id: 'cpp/pointers', title: 'Pointers' }); // atomic write: new inode
+    expect(await title()).toBe('Pointers');
+    // An editor saving in place (same inode, same length): only mtime changes.
+    const p = path.join(h.root, 'knowledge-base/cpp/pointers.md');
+    const text = await fs.readFile(p, 'utf8');
+    await new Promise((r) => setTimeout(r, 20));
+    await fs.writeFile(p, text.replace('title: Pointers', 'title: Pointerz'));
+    expect(await title()).toBe('Pointerz');
+    expect(await fs.readFile(path.join(h.root, '.mentor/cache/frontmatter.json'), 'utf8')).toContain('Pointerz');
+    const step1 = await h.call('mentor_delete', { scope: 'subject', target: 'cpp', purge: true });
+    await h.call('mentor_delete', { scope: 'subject', target: 'cpp', purge: true, confirmation_token: step1.json.token });
+    await expect(fs.stat(path.join(h.root, '.mentor/cache/frontmatter.json'))).rejects.toBeTruthy();
+    const exp = await h.call('mentor_export', {});
+    await expect(fs.stat(path.join(exp.json.export_path as string, '.mentor/cache'))).rejects.toBeTruthy();
+    await fs.rm(exp.json.export_path as string, { recursive: true, force: true });
+  });
+});

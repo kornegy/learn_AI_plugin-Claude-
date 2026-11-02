@@ -27,9 +27,21 @@ export interface LoadedDoc<T> {
   relPath: string;
 }
 
+/** Derived, disposable cache of parsed frontmatter: YAML parsing dominates bulk loads. */
+interface FmEntry {
+  ino: number;
+  size: number;
+  mtimeMs: number;
+  fm: unknown;
+}
+const CACHE_REL = `${DIRS.meta}/cache/frontmatter.json`;
+const CACHE_VERSION = 1;
+
 export class Store {
   readonly guard: PathGuard;
   readonly journal: Journal;
+  private fmCache: Map<string, FmEntry> | null = null;
+  private fmDirty = false;
 
   constructor(readonly root: string) {
     this.guard = new PathGuard(root);
@@ -134,6 +146,65 @@ export class Store {
     return { data: parsed.data, doc, relPath };
   }
 
+  /**
+   * Frontmatter only, through the cache (keyed by inode, size and mtime: every atomic write makes a
+   * new inode). Falls back to a full read and validation when the entry is missing or stale.
+   */
+  async readDataCached<S extends z.ZodType>(relPath: string, schema: S): Promise<{ data: z.infer<S>; relPath: string } | null> {
+    const cache = await this.loadFmCache();
+    let st;
+    try {
+      st = await fs.stat(await this.guard.assertReadable(relPath));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw e;
+    }
+    const hit = cache.get(relPath);
+    if (hit && hit.ino === st.ino && hit.size === st.size && hit.mtimeMs === st.mtimeMs) {
+      const parsed = schema.safeParse(hit.fm);
+      if (parsed.success) return { data: parsed.data, relPath };
+    }
+    const loaded = await this.readDoc(relPath, schema);
+    if (!loaded) return null;
+    cache.set(relPath, { ino: st.ino, size: st.size, mtimeMs: st.mtimeMs, fm: loaded.data });
+    this.fmDirty = true;
+    return { data: loaded.data, relPath };
+  }
+
+  private async loadFmCache(): Promise<Map<string, FmEntry>> {
+    if (this.fmCache) return this.fmCache;
+    this.fmCache = new Map();
+    try {
+      const raw = JSON.parse(await fs.readFile(this.guard.resolve(CACHE_REL), 'utf8')) as { v?: number; entries?: Record<string, FmEntry> };
+      if (raw.v === CACHE_VERSION && raw.entries && typeof raw.entries === 'object') {
+        for (const [k, v] of Object.entries(raw.entries)) if (v && typeof v === 'object') this.fmCache.set(k, v);
+      }
+    } catch {
+      /* missing or unreadable cache: rebuilt on demand */
+    }
+    return this.fmCache;
+  }
+
+  /** Writes the cache if it changed, dropping entries whose files no longer exist. Best effort. */
+  async flushCache(): Promise<void> {
+    if (!this.fmCache || !this.fmDirty) return;
+    const entries: Record<string, FmEntry> = {};
+    for (const [k, v] of this.fmCache) if (await exists(this.guard.resolve(k))) entries[k] = v;
+    try {
+      await atomicWrite(await this.guard.assertWritable(CACHE_REL), JSON.stringify({ v: CACHE_VERSION, entries }));
+      this.fmDirty = false;
+    } catch {
+      /* the cache is optional */
+    }
+  }
+
+  /** Forget the cache (after deletions, so removed data does not linger there). */
+  async dropCache(): Promise<void> {
+    this.fmCache = null;
+    this.fmDirty = false;
+    await fs.rm(this.guard.resolve(CACHE_REL), { force: true });
+  }
+
   async writeDoc<S extends z.ZodType>(relPath: string, schema: S, data: z.infer<S>, doc: MarkdownDoc): Promise<void> {
     const validated = schema.parse(data);
     const abs = await this.guard.assertWritable(relPath);
@@ -223,6 +294,6 @@ export class Store {
   }
 
   async copyRootTo(destAbs: string): Promise<number> {
-    return copyDir(this.root, destAbs, (r) => r === rel.lock() || r.startsWith(`${DIRS.trash}`) || r.includes('.tmp-'));
+    return copyDir(this.root, destAbs, (r) => r === rel.lock() || r.startsWith(`${DIRS.trash}`) || r.startsWith(`${DIRS.meta}/cache`) || r.includes('.tmp-'));
   }
 }
