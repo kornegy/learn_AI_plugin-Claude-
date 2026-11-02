@@ -15,7 +15,8 @@ Release candidate after Phase 5 (QA). Data schema unchanged (1). See docs/QA_REP
 
 - Section markers inside learner or model text are neutralised, so the text can no longer end a
   managed section early and make a file unreadable.
-- Stale lock takeover is race-safe (atomic rename plus content check).
+- Stale lock takeover is race-safe: a single breaker (`<lock>.break`) re-checks the stale content
+  before deleting it.
 - Only kebab-case file and folder names are read; other names are ignored and never echoed into
   the learner card.
 - The secret filter also covers topic titles in `mentor_plan_path` and topic aliases.
@@ -42,6 +43,7 @@ Release candidate after Phase 5 (QA). Data schema unchanged (1). See docs/QA_REP
 - Fuzz and property tests (seeded), tool-input fuzzing, security regression tests, and a
   compatibility fixture with v0.1.0 data; 194 tests in total.
 - `scripts/perf.ts` performance probe.
+- `mentor_plan_path` writes the journal once per call instead of once per topic.
 
 ## [0.2.0] - 2026-11-02
 

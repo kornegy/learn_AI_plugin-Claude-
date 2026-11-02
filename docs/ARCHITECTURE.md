@@ -525,9 +525,10 @@ data, because it is deleted on uninstall (ADR-004).
   On Windows, retry `rename` on `EPERM`/`EBUSY` up to 5 times.
 - **Lock:** `.mentor/lock`, created with `O_EXCL` and containing `{pid, host, started}`. Retry
   with backoff for up to 5 s. A lock older than 30 s whose pid is gone is stale and is taken
-  over. One lock for the whole root is enough: writes are small and infrequent. *(v0.9.0)* The
-  takeover renames the stale file atomically and checks its content; if another process had
-  already replaced it with a fresh lock, that lock is restored with an atomic `link`.
+  over. One lock for the whole root is enough: writes are small and infrequent. *(v0.9.0)* Only
+  one process at a time may break a stale lock (it holds `<lock>.break`, created with `O_EXCL`).
+  It re-reads the lock and deletes it only if it still holds the stale content, so a fresh lock
+  can never be removed. A breaker file left by a crash expires after the same 30 s.
 - **Frontmatter cache** *(v0.9.0)*: `.mentor/cache/frontmatter.json` holds parsed frontmatter
   keyed by inode, size and mtime, because YAML parsing dominates bulk loads. It is derived and
   disposable: stale or invalid entries fall back to a full read, it is excluded from exports, and

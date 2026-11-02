@@ -26,29 +26,31 @@ describe('security review regressions', () => {
     expect((await h.call('mentor_doctor')).json.ok).toBe(true);
   });
 
-  it('S2: a stale lock is taken over by exactly one of several contenders', async () => {
+  it('S2: a stale lock is taken over by exactly one of several contenders (stress)', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'lm-lock-'));
     const lockPath = path.join(dir, 'lock');
-    await fs.writeFile(lockPath, JSON.stringify({ pid: 999999, host: os.hostname(), started: 'old' }));
-    const old = new Date(Date.now() - 120_000);
-    await fs.utimes(lockPath, old, old);
-    let inside = 0;
     let maxInside = 0;
-    const work = () =>
-      withLock(
-        lockPath,
-        async () => {
-          inside++;
-          maxInside = Math.max(maxInside, inside);
-          await new Promise((r) => setTimeout(r, 20));
-          inside--;
-        },
-        { timeoutMs: 5000 },
-      );
-    await Promise.all(Array.from({ length: 8 }, work));
+    for (let round = 0; round < 30; round++) {
+      await fs.writeFile(lockPath, JSON.stringify({ pid: 999999, host: os.hostname(), started: `old-${round}` }));
+      const old = new Date(Date.now() - 120_000);
+      await fs.utimes(lockPath, old, old);
+      let inside = 0;
+      const work = () =>
+        withLock(
+          lockPath,
+          async () => {
+            inside++;
+            maxInside = Math.max(maxInside, inside);
+            await new Promise((r) => setTimeout(r, 2));
+            inside--;
+          },
+          { timeoutMs: 10_000 },
+        );
+      await Promise.all(Array.from({ length: 12 }, work));
+    }
     expect(maxInside).toBe(1);
     await fs.rm(dir, { recursive: true, force: true });
-  });
+  }, 60_000);
 
   it('S3: unexpected file names are ignored, never echoed into the card', async () => {
     h = await makeHarness();

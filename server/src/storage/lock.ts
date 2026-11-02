@@ -39,22 +39,33 @@ async function staleContent(lockPath: string, staleMs: number): Promise<string |
 }
 
 /**
- * Takes over a stale lock safely when several processes race: the stale file is moved away with
- * an atomic rename, and if what was moved turns out to be someone's fresh lock (they took over
- * first), it is restored with an atomic link that fails if a lock already exists.
+ * Breaks a stale lock so that racing processes can never both end up holding the lock.
+ * Only one process at a time may break (it holds `<lock>.break`, created with O_EXCL). It re-reads
+ * the lock and deletes it only if it still holds the stale content seen before. A fresh lock
+ * cannot appear in between: the path is only freed by this very deletion.
  */
-async function breakStaleLock(lockPath: string, expected: string): Promise<void> {
-  const aside = `${lockPath}.stale-${process.pid}-${Math.random().toString(36).slice(2)}`;
+async function breakStaleLock(lockPath: string, expected: string, staleMs: number): Promise<void> {
+  const breaker = `${lockPath}.break`;
   try {
-    await fs.rename(lockPath, aside);
-  } catch {
-    return; // someone else moved it already
+    const handle = await fs.open(breaker, 'wx');
+    await handle.close();
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+    // Another process is breaking right now; a breaker left behind by a crash expires.
+    try {
+      const st = await fs.stat(breaker);
+      if (Date.now() - st.mtimeMs > staleMs) await fs.rm(breaker, { force: true });
+    } catch {
+      /* gone already */
+    }
+    return;
   }
-  const moved = await fs.readFile(aside, 'utf8').catch(() => expected);
-  if (moved !== expected) {
-    await fs.link(aside, lockPath).catch(() => undefined);
+  try {
+    const current = await fs.readFile(lockPath, 'utf8').catch(() => null);
+    if (current === expected) await fs.rm(lockPath, { force: true });
+  } finally {
+    await fs.rm(breaker, { force: true });
   }
-  await fs.rm(aside, { force: true });
 }
 
 export async function withLock<T>(lockPath: string, fn: () => Promise<T>, opts: LockOptions = {}): Promise<T> {
@@ -73,7 +84,7 @@ export async function withLock<T>(lockPath: string, fn: () => Promise<T>, opts: 
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
       const stale = await staleContent(lockPath, staleMs);
       if (stale !== null) {
-        await breakStaleLock(lockPath, stale);
+        await breakStaleLock(lockPath, stale, staleMs);
         continue;
       }
       if (Date.now() > deadline) {

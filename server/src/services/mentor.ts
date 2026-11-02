@@ -675,18 +675,23 @@ export class Mentor {
       });
       await this.store.journal.append(makeEvents(this.ctx, [{ type: 'path_updated', subject, data: { mode, snapshot: data } }]));
       // Create stub topics and keep topic prerequisites in sync with the path (the path is authoritative).
+      // All journal events go in one append (the commit point), then the files are written.
+      const pending: { relPath: string; data: Topic; doc: import('../storage/markdown.js').MarkdownDoc }[] = [];
+      const events: NewEvent[] = [];
       for (const n of sorted) {
         const { slug } = parseQualifiedId('topic', n.id);
         const t = await this.store.readDoc(rel.topic(subject, slug), TopicSchema);
         if (!t) {
           const stub = TopicSchema.parse({ schema: DATA_SCHEMA, kind: 'topic', id: n.id, subject, title: titles.get(n.id), created: day, updated: day, prerequisites: n.prerequisites });
-          await this.store.journal.append(makeEvents(this.ctx, [{ type: 'topic_created', subject, topic: n.id, data: { title: stub.title, aliases: [], prerequisites: stub.prerequisites } }]));
-          await this.store.writeDoc(rel.topic(subject, slug), TopicSchema, stub, emptyTopicDoc(stub, lang));
+          events.push({ type: 'topic_created', subject, topic: n.id, data: { title: stub.title, aliases: [], prerequisites: stub.prerequisites } });
+          pending.push({ relPath: rel.topic(subject, slug), data: stub, doc: emptyTopicDoc(stub, lang) });
         } else if (JSON.stringify(t.data.prerequisites) !== JSON.stringify(n.prerequisites)) {
-          await this.store.journal.append(makeEvents(this.ctx, [{ type: 'topic_updated', subject, topic: n.id, data: { prerequisites: n.prerequisites } }]));
-          await this.store.writeDoc(rel.topic(subject, slug), TopicSchema, { ...t.data, prerequisites: n.prerequisites, updated: day }, t.doc);
+          events.push({ type: 'topic_updated', subject, topic: n.id, data: { prerequisites: n.prerequisites } });
+          pending.push({ relPath: rel.topic(subject, slug), data: { ...t.data, prerequisites: n.prerequisites, updated: day }, doc: t.doc });
         }
       }
+      if (events.length) await this.store.journal.append(makeEvents(this.ctx, events));
+      for (const w of pending) await this.store.writeDoc(w.relPath, TopicSchema, w.data, w.doc);
       await this.ensureSubject(subject, day, lang, existing ? {} : { goal: input.goal });
       const doc = existing?.doc ?? newDoc(data);
       await this.store.writeDoc(rel.subjectPath(subject), SubjectPathSchema, data, doc);
