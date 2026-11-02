@@ -5,8 +5,9 @@ argument-hint: "[subject]"
 
 Run a review session. Arguments: $ARGUMENTS (optional subject).
 
-1. Call `mentor_next` (with `subject` if given). Take the `review` items. If none are due, say so,
-   and offer the next learning step or an early review of the weakest topic.
+1. Call `mentor_next` with `focus: "review"` (and `subject` if given): due reviews, interleaved
+   across subjects. If none are due, say so, and offer the next learning step or an early review of
+   the weakest topic.
 2. For each due topic, at most 5 per session, mixing subjects when possible:
    - Ask **one** retrieval or application question (no re-explanation first). Use
      `mentor_get_topic` to target its gaps and misconceptions.

@@ -51,3 +51,52 @@ monospace-friendly. Always follow with one question about the picture.
  1     1  1
  2     2  3
 ```
+
+## Recursion tree (fib)
+
+```
+ fib(4)
+ ├─ fib(3)
+ │  ├─ fib(2) ─ fib(1), fib(0)
+ │  └─ fib(1)
+ └─ fib(2) ─ fib(1), fib(0)      ← fib(2) computed twice: why memoisation helps
+```
+
+## Hash table
+
+```
+ key "cat" ─hash→ 2
+ [0] ·
+ [1] "dog" → "bat"          ← collision chain
+ [2] "cat"
+ [3] ·
+```
+
+## Growth (big-O)
+
+```
+ n      log n   n     n log n   n²
+ 10     3       10    33        100
+ 1000   10      1000  9966      1 000 000
+```
+
+## TCP handshake
+
+```
+ client ── SYN ──────────▶ server
+ client ◀────── SYN-ACK ── server
+ client ── ACK ──────────▶ server   connection open
+```
+
+## Git history
+
+```
+ A ── B ── C        main
+       \
+        D ── E      feature   (merge: A─B─C─M, M has parents C and E)
+```
+
+## Progress map
+
+`mentor_progress` returns a ready map (level bars, ▶ current stage, ↻ due, ⚠ misconception). Show it
+as-is in a code block; don't redraw it.

@@ -66,7 +66,7 @@ describe('skills', async () => {
 describe('commands, agents, output styles', () => {
   it('every command has a description', async () => {
     const files = (await fs.readdir(path.join(ROOT, 'commands'))).sort();
-    expect(files).toEqual(['export.md', 'forget.md', 'plan.md', 'research.md', 'review.md', 'settings.md', 'start.md', 'status.md']);
+    expect(files).toEqual(['export.md', 'forget.md', 'plan.md', 'reflect.md', 'research.md', 'review.md', 'settings.md', 'start.md', 'status.md']);
     for (const f of files) expect(String(frontmatter(await fs.readFile(path.join(ROOT, 'commands', f), 'utf8')).description).length).toBeGreaterThan(20);
   });
 
@@ -99,11 +99,11 @@ describe('cross references', () => {
     expect(existsSync(path.join(ROOT, 'bin'))).toBe(false);
     const mcp = JSON.parse(await fs.readFile(path.join(ROOT, '.mcp.json'), 'utf8'));
     const hooks = JSON.parse(await fs.readFile(path.join(ROOT, 'hooks/hooks.json'), 'utf8'));
-    const files = [
-      ...mcp.mcpServers['learning-mentor'].args,
-      ...hooks.hooks.SessionStart[0].hooks[0].args,
-    ].filter((a: string) => a.startsWith('${CLAUDE_PLUGIN_ROOT}'));
-    expect(files.length).toBe(2);
+    const hookArgs = Object.values(hooks.hooks as Record<string, { hooks: { args: string[] }[] }[]>).flatMap((groups) =>
+      groups.flatMap((g) => g.hooks.flatMap((x) => x.args)),
+    );
+    const files = [...mcp.mcpServers['learning-mentor'].args, ...hookArgs].filter((a: string) => a.startsWith('${CLAUDE_PLUGIN_ROOT}'));
+    expect(files.length).toBe(3);
     for (const f of files) expect(existsSync(f.replace('${CLAUDE_PLUGIN_ROOT}', ROOT)), f).toBe(true);
   });
 

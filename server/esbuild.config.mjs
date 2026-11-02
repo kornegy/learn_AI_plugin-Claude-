@@ -22,3 +22,4 @@ const common = {
 
 await build({ ...common, entryPoints: ['src/mcp/main.ts'], outfile: 'dist/mentor-mcp.mjs' });
 await build({ ...common, entryPoints: ['src/hook/main.ts'], outfile: 'dist/hook.mjs' });
+await build({ ...common, entryPoints: ['src/hook/nudge.ts'], outfile: 'dist/nudge.mjs' });
