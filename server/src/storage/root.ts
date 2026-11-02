@@ -10,13 +10,25 @@ import { assertSlug } from '../core/ids.js';
 
 export const ROOT_ENV = 'LEARNING_MENTOR_HOME';
 
+/** The filesystem root, the home folder and their ancestors are never valid data roots or workspaces. */
+export function isTooBroad(p: string): boolean {
+  const abs = path.resolve(p);
+  if (abs === path.parse(abs).root) return true;
+  const home = path.resolve(os.homedir());
+  return isInside(abs, home); // abs is home itself or one of its ancestors
+}
+
 export function resolveRoot(env: NodeJS.ProcessEnv = process.env): string {
   const fromEnv = env[ROOT_ENV]?.trim();
   if (fromEnv) {
     if (!path.isAbsolute(fromEnv)) {
       throw new MentorError('E_PATH', `${ROOT_ENV} must be an absolute path, got "${fromEnv}".`);
     }
-    return path.resolve(fromEnv);
+    const abs = path.resolve(fromEnv);
+    if (isTooBroad(abs)) {
+      throw new MentorError('E_PATH', `${ROOT_ENV}="${abs}" is not a safe data folder (filesystem root or home folder). Use a dedicated folder such as ~/LearningMentor.`);
+    }
+    return abs;
   }
   return path.join(os.homedir(), 'LearningMentor');
 }

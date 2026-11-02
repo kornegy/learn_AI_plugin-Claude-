@@ -233,7 +233,15 @@ export class DataOps {
     return this.store.lock(async () => {
       const problems: { path: string; problem: string; action: string }[] = [];
       let checked = 0;
-      const { events, badLines } = await this.store.journal.readAll();
+      const { events, badLines, oversized } = await this.store.journal.readAll();
+      for (const f of oversized) {
+        problems.push({ path: `${DIRS.journal}/${f}`, problem: 'journal file is too large to load and was skipped', action: 'move it aside manually after checking it' });
+      }
+      for (const dir of [DIRS.profile, DIRS.subjects, DIRS.knowledge, DIRS.paths, DIRS.research]) {
+        let n = await this.store.countUnexpected(dir);
+        for (const s of await this.store.listSubjectsIn(dir)) if (dir !== DIRS.profile && dir !== DIRS.subjects) n += await this.store.countUnexpected(`${dir}/${s}`);
+        if (n) problems.push({ path: dir, problem: `${n} file(s) with unexpected names are ignored (names are not shown)`, action: 'none; rename to kebab-case or remove them' });
+      }
       if (badLines.length) {
         problems.push({ path: DIRS.journal, problem: `${badLines.length} unreadable journal line(s): ${badLines.slice(0, 5).map((b) => `${b.file}:${b.line}`).join(', ')}`, action: 'ignored when reading' });
       }

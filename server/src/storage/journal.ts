@@ -6,10 +6,13 @@ import { appendDurable, atomicWrite, listFiles } from './fsx.js';
 import { MentorError } from '../core/errors.js';
 
 export const MAX_LINE_BYTES = 16 * 1024;
+/** A monthly journal file above this size is not loaded (it cannot be legitimate: ~100k events). */
+export const MAX_JOURNAL_FILE_BYTES = 64 * 1024 * 1024;
 
 export interface JournalRead {
   events: JournalEvent[];
   badLines: { file: string; line: number }[];
+  oversized: string[];
 }
 
 export class Journal {
@@ -34,8 +37,14 @@ export class Journal {
   async readAll(): Promise<JournalRead> {
     const events: JournalEvent[] = [];
     const badLines: JournalRead['badLines'] = [];
+    const oversized: string[] = [];
     for (const file of await listFiles(this.dir, '.jsonl')) {
-      const text = await fs.readFile(path.join(this.dir, file), 'utf8');
+      const p = path.join(this.dir, file);
+      if ((await fs.stat(p)).size > MAX_JOURNAL_FILE_BYTES) {
+        oversized.push(file);
+        continue;
+      }
+      const text = await fs.readFile(p, 'utf8');
       const lines = text.split('\n');
       lines.forEach((line, idx) => {
         if (!line.trim()) return;
@@ -50,7 +59,7 @@ export class Journal {
     }
     // Files are monthly and ids are time-sortable; sort for a stable chronological order.
     events.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    return { events, badLines };
+    return { events, badLines, oversized };
   }
 
   /** Removes events matching the predicate (used only by purge). Returns the number removed. */

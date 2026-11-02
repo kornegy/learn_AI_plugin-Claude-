@@ -38,7 +38,8 @@ import type { EvidenceRecord } from '../engine/evidence.js';
 import type { JournalEvent } from '../schema/index.js';
 import { searchTopics } from '../engine/search.js';
 import { appendToSection, getSection, newDoc, setSection } from '../storage/markdown.js';
-import { DIRS, isInside, realOrResolved, rel } from '../storage/root.js';
+import { DIRS, isInside, isTooBroad, realOrResolved, rel } from '../storage/root.js';
+import nodePath from 'node:path';
 import { Store } from '../storage/store.js';
 import {
   VERSION,
@@ -141,7 +142,16 @@ export class Mentor {
       }
       let workspace: string | null = null;
       if (input.workspace_path) {
+        if (!nodePath.isAbsolute(input.workspace_path)) {
+          throw new MentorError('E_INVALID_INPUT', `workspace_path must be an absolute path, got "${input.workspace_path}".`);
+        }
         workspace = await realOrResolved(input.workspace_path);
+        if (isTooBroad(workspace)) {
+          throw new MentorError(
+            'E_INVALID_INPUT',
+            `"${workspace}" is too broad to be a learning workspace (it would turn on mentor mode in all your projects). Use a dedicated folder such as ~/learning.`,
+          );
+        }
         if (!config.workspaces.some((w) => w === workspace)) {
           config.workspaces = [...config.workspaces, workspace];
           events.push({ type: 'workspace_registered', data: { path: workspace } });
@@ -411,7 +421,7 @@ export class Mentor {
       parseQualifiedId('topic', p);
       if (p === input.topic_id) throw new MentorError('E_CYCLE', `Topic ${p} cannot be its own prerequisite.`);
     }
-    assertNoSecrets({ title: input.title, ...Object.fromEntries(Object.entries(input.sections ?? {})) });
+    assertNoSecrets({ title: input.title, aliases: (input.aliases ?? []).join('\n'), ...Object.fromEntries(Object.entries(input.sections ?? {})) });
     return this.store.lock(async () => {
       const config = await this.config();
       const lang = labelLang(config);
@@ -623,7 +633,7 @@ export class Mentor {
     for (const t of input.topics) {
       if (parseQualifiedId('topic', t.topic_id).subject !== subject) throw new MentorError('E_INVALID_INPUT', `Topic ${t.topic_id} does not belong to subject ${subject}.`);
     }
-    assertNoSecrets({ goal: input.goal });
+    assertNoSecrets({ goal: input.goal, titles: input.topics.map((t) => t.title ?? '').join('\n') });
     return this.store.lock(async () => {
       const config = await this.config();
       const lang = labelLang(config);

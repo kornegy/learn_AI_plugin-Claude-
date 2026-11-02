@@ -31,7 +31,7 @@ async function inWorkspace(root: string, cwd: string): Promise<boolean> {
   }
   let workspaces: unknown;
   try {
-    workspaces = (YAML.parse(text, { schema: 'core' }) as { workspaces?: unknown } | null)?.workspaces;
+    workspaces = (YAML.parse(text, { schema: 'core', logLevel: 'error' }) as { workspaces?: unknown } | null)?.workspaces;
   } catch {
     return false;
   }

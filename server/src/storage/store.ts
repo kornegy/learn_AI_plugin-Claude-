@@ -7,12 +7,19 @@ import path from 'node:path';
 import type { z } from 'zod';
 import YAML from 'yaml';
 import { MentorError } from '../core/errors.js';
+import { isSlug } from '../core/ids.js';
 import { DATA_SCHEMA, formatZodError, ConfigSchema, MetaSchema, type Config, type Meta } from '../schema/index.js';
 import { atomicWrite, copyDir, exists, listDirs, listFiles, readText } from './fsx.js';
 import { Journal } from './journal.js';
 import { withLock } from './lock.js';
 import { parseDoc, serializeDoc, type MarkdownDoc } from './markdown.js';
 import { DIRS, PathGuard, rel } from './root.js';
+
+function isOwnDocName(file: string): boolean {
+  if (!file.endsWith('.md')) return false;
+  const base = file.slice(0, -3);
+  return base === '_path' || isSlug(base);
+}
 
 export interface LoadedDoc<T> {
   data: T;
@@ -57,7 +64,7 @@ export class Store {
     if (text === null) return ConfigSchema.parse({});
     let raw: unknown;
     try {
-      raw = YAML.parse(text, { schema: 'core' }) ?? {};
+      raw = YAML.parse(text, { schema: 'core', logLevel: 'error' }) ?? {};
     } catch (e) {
       throw new MentorError('E_CORRUPT', `${rel.config()}: not valid YAML (${(e as Error).message.split('\n')[0]}). Run mentor_doctor.`, {
         path: rel.config(),
@@ -80,7 +87,7 @@ export class Store {
   async readMeta(): Promise<Meta | null> {
     const text = await readText(await this.guard.assertReadable(rel.meta()));
     if (text === null) return null;
-    const parsed = MetaSchema.safeParse(YAML.parse(text, { schema: 'core' }));
+    const parsed = MetaSchema.safeParse(YAML.parse(text, { schema: 'core', logLevel: 'error' }));
     if (!parsed.success) throw new MentorError('E_CORRUPT', `${rel.meta()}: ${formatZodError(parsed.error)}.`, { path: rel.meta() });
     if (parsed.data.data_schema > DATA_SCHEMA) this.tooNew(rel.meta(), parsed.data.data_schema);
     return parsed.data;
@@ -141,12 +148,22 @@ export class Store {
     return exists(this.guard.resolve(relPath));
   }
 
+  /** Subject folders: only kebab-case names are ours; anything else is ignored. */
   async listSubjectsIn(dir: string): Promise<string[]> {
-    return listDirs(this.guard.resolve(dir));
+    return (await listDirs(this.guard.resolve(dir))).filter(isSlug);
   }
 
+  /** Documents: only "<slug>.md" (and "_path.md") are ours. Other names are never echoed back. */
   async listDocs(relDir: string): Promise<string[]> {
-    return (await listFiles(this.guard.resolve(relDir), '.md')).map((f) => `${relDir}/${f}`);
+    return (await listFiles(this.guard.resolve(relDir), '.md')).filter(isOwnDocName).map((f) => `${relDir}/${f}`);
+  }
+
+  /** Number of files and folders with names the plugin does not use (for doctor; names are not returned). */
+  async countUnexpected(relDir: string): Promise<number> {
+    const abs = this.guard.resolve(relDir);
+    const files = (await listFiles(abs, '')).filter((f) => !isOwnDocName(f));
+    const dirs = (await listDirs(abs)).filter((d) => !isSlug(d));
+    return files.length + dirs.length;
   }
 
   // ------------------------------------------------------------ backups, trash, quarantine

@@ -39,7 +39,7 @@ export function parseDoc(text: string, label = 'document'): MarkdownDoc {
   const fmText = normalized.slice(4, fmEnd);
   let frontmatter: unknown;
   try {
-    frontmatter = YAML.parse(fmText, { schema: 'core', uniqueKeys: true }) ?? {};
+    frontmatter = YAML.parse(fmText, { schema: 'core', uniqueKeys: true, logLevel: 'error' }) ?? {};
   } catch (e) {
     throw new MentorError('E_CORRUPT', `${label}: frontmatter is not valid YAML (${(e as Error).message.split('\n')[0]}).`, { path: label });
   }
@@ -108,19 +108,28 @@ export function serializeDoc(doc: MarkdownDoc): string {
   return `---\n${fm}\n---\n\n${body.trimEnd()}\n`;
 }
 
+/**
+ * Learner or model text must never contain our structural markers: neutralise any
+ * "<!-- mentor:" sequence so section boundaries can only come from the server.
+ */
+export function neutralizeMarkers(text: string): string {
+  return text.replace(/<!--(\s*)mentor:/gi, '<!--$1mentor-text:');
+}
+
 export function getSection(doc: MarkdownDoc, name: string): Section | undefined {
   return doc.segments.find((s): s is Section => s.type === 'section' && s.name === name);
 }
 
 /** Replaces (or creates at the end) a section's content. The learner's heading edits are kept. */
 export function setSection(doc: MarkdownDoc, name: string, heading: string, content: string): void {
+  const safe = neutralizeMarkers(content).trim();
   const existing = getSection(doc, name);
   if (existing) {
-    existing.content = content.trim();
+    existing.content = safe;
     if (!existing.heading) existing.heading = heading;
     return;
   }
-  doc.segments.push({ type: 'text', text: '' }, { type: 'section', name, heading, content: content.trim() });
+  doc.segments.push({ type: 'text', text: '' }, { type: 'section', name, heading, content: safe });
 }
 
 /**
@@ -128,7 +137,11 @@ export function setSection(doc: MarkdownDoc, name: string, heading: string, cont
  * "<name>-archive" section at the end of the document, so nothing is lost.
  */
 export function appendToSection(doc: MarkdownDoc, name: string, heading: string, lines: string[], archiveHeading: string): void {
-  const clean = lines.map((l) => l.trim()).filter(Boolean).map((l) => (l.startsWith('- ') ? l : `- ${l}`));
+  const clean = lines
+    .flatMap((l) => neutralizeMarkers(l).split('\n'))
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => (l.startsWith('- ') ? l : `- ${l}`));
   if (!clean.length) return;
   const existing = getSection(doc, name);
   const current = existing?.content ? existing.content.split('\n') : [];
