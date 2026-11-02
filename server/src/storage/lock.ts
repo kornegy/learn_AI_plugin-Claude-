@@ -20,6 +20,28 @@ function pidAlive(pid: number): boolean {
   }
 }
 
+/**
+ * Windows reports a file in "delete pending" state (deleted while another process still has it
+ * open, e.g. reading it) with EPERM/EACCES/EBUSY instead of EEXIST/ENOENT. Those are transient.
+ */
+function isTransient(e: unknown): boolean {
+  const code = (e as NodeJS.ErrnoException).code;
+  return code === 'EPERM' || code === 'EACCES' || code === 'EBUSY';
+}
+
+/** rm that tolerates transient Windows errors with a few retries; never throws. */
+async function removeQuietly(p: string): Promise<void> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      await fs.rm(p, { force: true });
+      return;
+    } catch (e) {
+      if (!isTransient(e)) return;
+      await sleep(10 * (attempt + 1));
+    }
+  }
+}
+
 /** Returns the lock file's content if the lock is stale (old and its process is gone), else null. */
 async function staleContent(lockPath: string, staleMs: number): Promise<string | null> {
   try {
@@ -50,11 +72,12 @@ async function breakStaleLock(lockPath: string, expected: string, staleMs: numbe
     const handle = await fs.open(breaker, 'wx');
     await handle.close();
   } catch (e) {
+    if (isTransient(e)) return; // a breaker is being removed right now (Windows): retry later
     if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     // Another process is breaking right now; a breaker left behind by a crash expires.
     try {
       const st = await fs.stat(breaker);
-      if (Date.now() - st.mtimeMs > staleMs) await fs.rm(breaker, { force: true });
+      if (Date.now() - st.mtimeMs > staleMs) await removeQuietly(breaker);
     } catch {
       /* gone already */
     }
@@ -62,9 +85,9 @@ async function breakStaleLock(lockPath: string, expected: string, staleMs: numbe
   }
   try {
     const current = await fs.readFile(lockPath, 'utf8').catch(() => null);
-    if (current === expected) await fs.rm(lockPath, { force: true });
+    if (current === expected) await removeQuietly(lockPath);
   } finally {
-    await fs.rm(breaker, { force: true });
+    await removeQuietly(breaker);
   }
 }
 
@@ -81,11 +104,14 @@ export async function withLock<T>(lockPath: string, fn: () => Promise<T>, opts: 
       await handle.close();
       break;
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
-      const stale = await staleContent(lockPath, staleMs);
-      if (stale !== null) {
-        await breakStaleLock(lockPath, stale, staleMs);
-        continue;
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST' && !isTransient(e)) throw e;
+      if (code === 'EEXIST') {
+        const stale = await staleContent(lockPath, staleMs);
+        if (stale !== null) {
+          await breakStaleLock(lockPath, stale, staleMs);
+          continue;
+        }
       }
       if (Date.now() > deadline) {
         throw new MentorError('E_LOCKED', 'Another Claude session is writing learning data right now. Retry in a moment.');
@@ -97,6 +123,6 @@ export async function withLock<T>(lockPath: string, fn: () => Promise<T>, opts: 
   try {
     return await fn();
   } finally {
-    await fs.rm(lockPath, { force: true });
+    await removeQuietly(lockPath);
   }
 }
