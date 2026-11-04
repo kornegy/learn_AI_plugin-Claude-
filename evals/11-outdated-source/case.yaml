@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: 11-outdated-source
+context:
+  scaffold_script: seed.sh

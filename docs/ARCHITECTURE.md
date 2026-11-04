@@ -1,6 +1,7 @@
 # Learning Mentor — Architecture
 
-> Phase 2 deliverable. Status: **approved design, not yet implemented.**
+> Phase 2 deliverable, updated after the Phase 3 MVP. Status: **implemented in v0.1.0**; deviations
+> from the original design are marked *(v0.1.0)*.
 > Companion documents: [PRODUCT_SPEC.md](PRODUCT_SPEC.md) (what the learner experiences),
 > [DATA_FORMAT.md](DATA_FORMAT.md) (on-disk format), [ROADMAP.md](ROADMAP.md) (delivery plan),
 > [RESEARCH.md](RESEARCH.md) (Phase 1 findings, in Russian).
@@ -59,14 +60,14 @@ environment and teaches anyway.
 │    mentor/       session protocol, Socratic method, analogies, stages, visuals, tone    │
 │    assess/       evidence classification rubric, level semantics                        │
 │    code-mentor/  7-stage programming protocol, assistance ladder, "write it for me"     │
-│    research/     source policy, freshness, prompt-injection rules                       │
+│    source-research/ source policy, freshness, prompt-injection rules                    │
 │                                                                                         │
 │  commands/       start · status · plan · review · research · settings · export · forget │
 │  agents/         researcher.md  (WebSearch + WebFetch only; Code, Cowork)               │
 │  output-styles/  mentor.md      (opt-in, Claude Code only, never forced)                │
 │  hooks/hooks.json                                                                       │
 │    SessionStart(startup|resume|clear|compact) → node dist/hook.mjs session-start        │
-│    UserPromptSubmit → node dist/hook.mjs checkpoint-nudge          (Phase 4)            │
+│    UserPromptSubmit → node dist/nudge.mjs   (v0.2.0, separate light bundle, ~50 ms)     │
 │  .mcp.json → node dist/mentor-mcp.mjs                                                   │
 │                                                                                         │
 │  server/  (TypeScript → two esbuild bundles, committed to git)                          │
@@ -104,8 +105,10 @@ environment and teaches anyway.
 - `engine/` is pure: no I/O, no clock. Time and data are passed in, so it is unit-testable with
   plain values.
 - `storage/` is the only module that touches the filesystem.
-- Nothing in `server/` accesses the network. No `fetch` and no `http` imports, enforced by a lint
-  rule (ADR-008).
+- Nothing in `server/` accesses the network. No `fetch` and no `http` imports, enforced by
+  `tests/unit/architecture.test.ts` (ADR-008).
+- *(v0.1.0)* No runtime dynamic `import()`: it makes esbuild wrap zod lazily and the bundled server
+  crashes on start (see docs/SPIKES.md). Also enforced by the architecture test.
 
 ---
 
@@ -394,6 +397,32 @@ Priority order, truncated to the top 5 items:
 
 Each item has a one-line `why`.
 
+### 7.4. Insights *(v0.2.0)*
+
+`engine/insights.ts` turns topic state and evidence into actionable patterns, sorted by severity:
+
+| Insight | Rule | Suggestion |
+|---|---|---|
+| `cross_topic_misconception` (high) | same unresolved misconception id in ≥ 2 topics | fix the shared idea once, then re-check each topic |
+| `recurring_misconception` (high) | a misconception came back after `resolved` | new representation; learner explains why the wrong model fails |
+| `weak_prerequisite` (high) | ≥ 2 failures on a topic in 14 days and a prerequisite is null, ≤ 2 or provisional | check that prerequisite first |
+| `regression` (medium) | level 2 after a regression in the last 30 days | insert a reinforcement stage |
+| `hint_dependence` (medium) | ≥ 3 successful applications, all assisted | fade hints |
+| `review_backlog` (medium) | ≥ 5 reviews due | short interleaved review sessions |
+| `stalled_stage` (low) | a stage active > 14 days | split it or revisit its prerequisite |
+| `probe_provisional` (low) | a provisional level ≥ 3 is a prerequisite of a topic in progress | confirm with one question |
+
+High-severity insights appear in the learner card (quoted). The recommender adds `reinforce`
+after a regression until the topic plan is updated, and interleaves due reviews across
+subjects (round-robin, most overdue first).
+
+### 7.5. Checkpoint nudge *(v0.2.0)*
+
+`UserPromptSubmit` runs `dist/nudge.mjs`, a separate bundle without zod or services (~50 ms).
+Inside a workspace it compares the newest journal event id with the one seen at the previous
+prompt of the same session (`${CLAUDE_PLUGIN_DATA}/nudge/<session>.json`). After every 8 prompts
+without a change it adds one fact line. It never blocks, and outside workspaces it prints nothing.
+
 ---
 
 ## 8. Learner card (context injection)
@@ -401,12 +430,17 @@ Each item has a one-line `why`.
 - Built by `CardService` and used by both the hook and `mentor_get_context`.
 - **Facts only, no imperatives.** Hook context written as instructions may be treated as a
   prompt-injection attempt; the instructions live in the skills.
+- *(v0.1.0)* The workspace line states what the folder is for and names the skills. Live tests
+  showed that a facts-only card did not make Claude load `code-mentor` for "write it for me"
+  requests (ADR-015).
 - Budget: **≤ 4 000 characters** (the platform cap is 10 000). Sections are filled in priority
   order and truncated with `… (+N more; use mentor_next)`.
 
 ```
 Learning Mentor — learner card (data as of 2026-11-01, local time 18:40)
-Learning workspace: active (/home/me/learning)
+Learning workspace: active (/home/me/learning). The learner set this folder up for learning: requests here,
+  including requests for code, are learning exercises, and the rules the learner chose for replies are in the
+  skills learning-mentor:mentor and learning-mentor:code-mentor (…).
 Settings: language=auto, style=analogy-first, strictness=standard, assistance=balanced, mode=guided
 Active subjects: cpp (goal: systems programming job-ready), sql
 Current: cpp/pointers — stage 5/8 "Dereferencing" (active since 2026-10-28)
@@ -431,7 +465,10 @@ topic id is `<subject>/<slug>` with the same slug rule. Titles may be in any lan
 |---|---|---|---|
 | `mentor_init` | `workspace_path?`, `language?` | root path, created folders, workspaces | config, folders |
 | `mentor_get_context` | `subject?` | learner card + structured state | — |
-| `mentor_next` | `subject?` | prioritised recommendations (§7.3) | — |
+| `mentor_next` | `subject?`, `focus?: all\|review` | prioritised recommendations (§7.3); `review` = due reviews interleaved across subjects | — |
+| `mentor_insights` *(v0.2.0)* | `subject?` | cross-topic patterns with suggestions (§7.4) | — |
+| `mentor_progress` *(v0.2.0)* | `subject?` | ASCII progress map per subject | — |
+| `mentor_log_session` *(v0.2.0)* | `summary`, `next_step?`, `topics?` | saved; shown in the next card | journal |
 | `mentor_find_topics` | `query`, `subject?`, `limit≤20` | matches `{id,title,aliases,level,provisional,score}` | — |
 | `mentor_get_topic` | `topic_id`, `evidence_limit≤50` | record, prerequisites with levels, stages, recent evidence, misconceptions | — |
 | `mentor_upsert_topic` | `topic_id`, `title`, `aliases?`, `prerequisites?`, `sections?{summary,studied,understands,gaps,to_review}`, `section_mode: replace\|append` | record | topic |
@@ -448,7 +485,7 @@ topic id is `<subject>/<slug>` with the same slug rule. Titles may be in any lan
 | `mentor_delete` | `scope: topic\|subject\|research\|all`, `target?`, `purge?`, `confirmation_token?` | step 1: what would be deleted + token; step 2: result | trash / removal |
 | `mentor_doctor` | `repair?` | integrity report, actions taken | quarantine, repaired files |
 
-17 tools. Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
+21 tools (v0.2.0). Tool descriptions are written for the model, ≤ 2 sentences each, and say *when* to
 use the tool. Claude Code defers MCP tool schemas when there are many tools, so the context cost
 is acceptable.
 
@@ -474,7 +511,13 @@ data, because it is deleted on uninstall (ADR-004).
 - `lstat` before each write: symlinks inside the root are refused for writes and followed for
   reads only if their target is inside the root.
 - Windows reserved names (`con`, `nul`, …) are rejected by the id regex.
-- Read limit: 512 KB per file. Larger files are reported by `doctor` and not loaded.
+- Read limit: 512 KB per document and 64 MB per monthly journal file. Larger files are reported
+  by `doctor` and not loaded.
+- *(v0.9.0)* Only kebab-case names (`<slug>.md`, `_path.md`, slug folders) are read. Other files
+  are ignored and only counted, so their names never reach the model.
+- *(v0.9.0)* The filesystem root, the home folder and its ancestors are rejected as data root and
+  as workspace.
+- *(v0.9.0)* Structural markers (`<!-- mentor:…`) inside written text are neutralised.
 
 ### 10.3. Writes, locking, journal
 
@@ -482,7 +525,16 @@ data, because it is deleted on uninstall (ADR-004).
   On Windows, retry `rename` on `EPERM`/`EBUSY` up to 5 times.
 - **Lock:** `.mentor/lock`, created with `O_EXCL` and containing `{pid, host, started}`. Retry
   with backoff for up to 5 s. A lock older than 30 s whose pid is gone is stale and is taken
-  over. One lock for the whole root is enough: writes are small and infrequent.
+  over. One lock for the whole root is enough: writes are small and infrequent. *(v0.9.0)* Only
+  one process at a time may break a stale lock (it holds `<lock>.break`, created with `O_EXCL`).
+  It re-reads the lock and deletes it only if it still holds the stale content, so a fresh lock
+  can never be removed. A breaker file left by a crash expires after the same 30 s.
+- **Frontmatter cache** *(v0.9.0)*: `.mentor/cache/frontmatter.json` holds parsed frontmatter
+  keyed by inode, size and mtime, because YAML parsing dominates bulk loads. It is derived and
+  disposable: stale or invalid entries fall back to a full read, it is excluded from exports, and
+  it is dropped on every deletion.
+- **Journal index** *(v0.9.0)*: histories of many topics come from one pass over the journal
+  (`JournalIndex`), never from a scan per topic.
 - **Journal:** `.mentor/journal/YYYY-MM.jsonl`, one event per line, ≤ 4 KB per line, appended
   with `O_APPEND` and then `fsync`. It is append-only, except for `purge` (§10.4), which rewrites
   affected lines and records the purge itself.
@@ -601,13 +653,20 @@ workspaces: []
 
 - **Runtime dependencies:** `@modelcontextprotocol/sdk` 1.32.x, `zod` 4.x, `yaml` 2.x,
   `ts-fsrs` 5.4.x.
-- **Dev dependencies:** TypeScript 6.0.x, esbuild, vitest, eslint, prettier.
-- `esbuild` produces `server/dist/mentor-mcp.mjs` and `server/dist/hook.mjs`: single-file ESM,
-  Node ≥ 20 target, dependencies inlined, no `node_modules` at install time.
-- `dist/` is committed. CI rebuilds it and fails if the result differs from the committed files.
-- Node is invoked by name (`"command": "node"`). If Node is missing, Claude Code shows that the
-  MCP server failed to start. README documents the requirement. Phase 6 evaluates standalone
-  binaries outside `bin/`.
+- **Dev dependencies:** TypeScript 6.0.x, esbuild, vitest. *(v0.1.0)* Layering and privacy rules
+  are enforced by architecture tests rather than eslint.
+- `esbuild` produces three ESM programs in `server/dist/`: `mentor-mcp.mjs` (MCP server),
+  `hook.mjs` (SessionStart) and `nudge.mjs` (UserPromptSubmit). Node ≥ 20 target, dependencies
+  inlined, no `node_modules` at install time. *(v1.0.0)* Output is **not minified** and uses code
+  splitting: code shared by the three programs lives in `server/dist/chunks/` (≈ 1.9 MB in total,
+  readable, one `// node_modules/<pkg>/…` or `// src/…` header per module). The build also writes
+  `THIRD_PARTY_NOTICES.md` from the bundle's metafile (ADR-017).
+- `dist/` is committed. CI rebuilds it and fails if the result, or the notices file, differs from
+  the committed files.
+- Node is invoked by name (`"command": "node"`). If Node is missing, Claude Code reports that the
+  hooks failed and the MCP server could not start; the session continues. The commands and the
+  `mentor` skill then tell the learner that the plugin's server needs Node.js 20+ and don't make
+  up any progress. No standalone binaries are shipped (ADR-018).
 - `claude plugin validate --strict` runs in CI.
 
 ```json
@@ -653,9 +712,46 @@ provisional flag and regression. The rule tables in §6 are the spec for these t
 | 006 | Level = deterministic function of model-classified evidence | The model assigns levels directly | Consistency, testability, no inflation |
 | 007 | Understanding level separate from retention (FSRS) | One combined level | Different phenomena; avoids false downgrades |
 | 008 | Research through a read-only subagent; server has no network code | The server fetches pages | Isolates untrusted content; respects user permissions |
-| 009 | TypeScript/Node, esbuild single-file bundles committed | Python; compiled binaries | Reference SDK; Node ships with Claude Desktop; no install step |
+| 009 | TypeScript/Node, esbuild bundles committed (readable and split since v1.0.0, ADR-017) | Python; compiled binaries | Reference SDK; Node ships with Claude Desktop; no install step |
 | 010 | Delete goes to trash by default; purge on request with a token | Immediate delete | Protection from accidents plus a real erasure option |
 | 011 | Assistance ladder, `balanced` by default; a full solution is never given | Absolute no-code rule | Worked-example effect for novices |
 | 012 | Managed sections delimited by HTML comments | Fixed English headings | Localised headings, preserves learner's free text |
 | 013 | MIT license; conversation language detected automatically | Apache-2.0; fixed language | Owner's decision (2026-11-01) |
 | 014 | "Different sessions" in the mastery rules means different calendar days | Session ids | Surface-independent; matches the spacing effect |
+| 015 | *(v0.1.0)* The card's workspace line names the mentor skills and says requests there are learning exercises | Facts-only card; forced output style | Live test: a facts-only card did not change behaviour; a forced style would affect all projects |
+| 016 | *(v0.1.0)* Reviews (FSRS cards) start only from demonstrated evidence, not from self-reports or overrides | Start from any level ≥ 3 | Self-reported knowledge isn't something to schedule reviews for until it is shown |
+| 017 | *(v1.0.0)* Readable (non-minified), code-split bundles with generated license notices | Minified bundles; lockfile install at the plugin root | The directory's scan must be able to read the shipped code; details below |
+| 018 | *(v1.0.0)* Node.js 20+ on PATH is a documented requirement; no standalone binaries | Per-platform executables; `.mcpb` | Size and inspection limits of the directory; details below |
+
+### ADR-017 — Readable, split bundles instead of minified ones *(v1.0.0)*
+
+**Context.** Anthropic's plugin directory scans the shipped files and holds code it can't read
+(compiled, packed or minified) for a human reviewer. Files over 256 KiB are also held; files over
+5 MiB stop validation. Users who install from a marketplace get no build step.
+**Decision.** Ship non-minified esbuild output with code splitting, and generate
+`THIRD_PARTY_NOTICES.md` with the license text of every bundled package. The TypeScript sources
+in `server/src` stay the reference; CI proves that `dist/` is exactly what they build to.
+**Consequences.** Shipped code is readable and about half the size of three separate bundles
+(≈ 1.9 MB vs 3.3 MB unminified). Two chunks and the server entry are still over 256 KiB, so a
+directory submission is expected to be held for a reviewer once; that is a review, not a
+rejection. SessionStart hook time is unchanged (≈ 260 ms at 150 topics). The alternative,
+installing dependencies from a lockfile at the plugin root, is also held for review, needs npm
+and network at install time, and resolves code at install time; rejected.
+
+### ADR-018 — No standalone binaries; Node.js 20+ is a documented requirement *(v1.0.0)*
+
+**Context.** Users without Node can't run the hooks or the MCP server. Options evaluated in
+Phase 6: Node single-executable applications or Bun-compiled binaries per platform; a `.mcpb`
+bundle (Claude Desktop ships its own Node runtime for those); keeping `node` on PATH.
+**Decision.** Keep `node` on PATH as the requirement, documented in the README, and make the
+failure understandable: commands and the `mentor` skill name the cause. Ship no binaries.
+**Why.** A standalone binary is 50–100 MB per platform (×5 platforms). That is over the
+directory's 5 MiB per-file and 50 MiB repository limits, and compiled executables are held for
+review because they can't be inspected. `bin/` must stay absent for claude.ai and Cowork.
+`.mcpb` bundles inside a plugin are held for review too, and they target Claude Desktop chat,
+which ignores local plugin servers anyway (spike S3, deferred). Claude Code's Node-free native
+installer is common, so this requirement is real. It is checked by a live test: with `node`
+removed from PATH, the session works and the mentor explains the missing Node.js instead of
+inventing progress.
+**Revisit** if Claude Code exposes a runtime to plugins, or if a `.mcpb` Desktop build is wanted.
+

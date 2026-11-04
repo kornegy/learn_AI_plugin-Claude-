@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Learning Mentor</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F3A5F"/>
+      <stop offset="1" stop-color="#0E6B66"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- An open book: what you learn -->
+  <path d="M96 352 C152 324 208 324 256 352 C304 324 360 324 416 352 L416 392 C360 364 304 364 256 392 C208 364 152 364 96 392 Z" fill="#F4EBD9"/>
+  <path d="M256 352 L256 392" stroke="#1F3A5F" stroke-width="6" stroke-linecap="round" opacity="0.35"/>
+  <!-- A learning path rising from the book, stage by stage -->
+  <path d="M168 300 L232 236 L296 260 L360 168" fill="none" stroke="#F4EBD9" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="168" cy="300" r="22" fill="#F4EBD9"/>
+  <circle cx="232" cy="236" r="22" fill="#F4EBD9"/>
+  <circle cx="296" cy="260" r="22" fill="#F4EBD9"/>
+  <!-- The goal: a spark -->
+  <path d="M360 104 L376 148 L420 164 L376 180 L360 224 L344 180 L300 164 L344 148 Z" fill="#F2B544"/>
+</svg>

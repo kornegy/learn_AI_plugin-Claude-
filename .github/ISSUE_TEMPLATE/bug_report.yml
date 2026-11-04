@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in Learning Mentor does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please do **not** paste your personal learning data, API keys or tokens.
+        If the bug is a security problem, follow SECURITY.md instead of opening an issue.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. /learning-mentor:start in ~/learning\n2. …"
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      placeholder: "plugin 0.1.0, Claude Code 2.1.3xx, Node 22, macOS 15"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where
+      options: [Claude Code CLI, Claude Code IDE extension, Claude Desktop (Code tab), Cowork, claude.ai chat]
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: mentor_doctor output (optional)
+      description: Ask Claude to run mentor_doctor and paste the summary (remove anything personal).

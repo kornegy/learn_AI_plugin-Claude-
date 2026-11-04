@@ -1,0 +1,30 @@
+{
+  "name": "learning-mentor-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local MCP server and hooks for the Learning Mentor Claude plugin",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "ts-fsrs": "5.4.2",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
+  }
+}

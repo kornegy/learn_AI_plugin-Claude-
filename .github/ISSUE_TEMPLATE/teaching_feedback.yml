@@ -1,0 +1,28 @@
+name: Teaching behaviour feedback
+description: The mentor taught badly, gave away a solution, asked too many questions, misjudged a level…
+labels: [teaching]
+body:
+  - type: textarea
+    id: situation
+    attributes:
+      label: Situation
+      description: What you were learning and what you asked (paraphrase; no personal data).
+    validations:
+      required: true
+  - type: textarea
+    id: mentor
+    attributes:
+      label: What the mentor did
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What a good mentor would have done
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Gave a ready-made solution, Too many questions or too long, Level judged wrongly, Forgot progress, Analogy misleading, Other]

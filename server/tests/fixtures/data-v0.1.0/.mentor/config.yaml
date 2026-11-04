@@ -1,0 +1,16 @@
+# Learning Mentor settings. Edit with /learning-mentor:settings.
+schema: 1
+language: auto
+label_language: ru
+explanation_style: analogy-first
+assessment_strictness: standard
+review_intensity: normal
+assistance_level: balanced
+learning_mode: guided
+research:
+  auto: true
+  ttl_days:
+    fast_moving: 90
+    stable: 365
+    foundational: 1095
+workspaces: []

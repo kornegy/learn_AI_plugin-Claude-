@@ -1,0 +1,12 @@
+{
+  "name": "learning-mentor-marketplace",
+  "description": "Learning Mentor plugin for Claude Code and Cowork",
+  "owner": { "name": "kornegy" },
+  "plugins": [
+    {
+      "name": "learning-mentor",
+      "source": "./",
+      "description": "Personal learning mentor with local, evidence-based memory of what you know"
+    }
+  ]
+}
