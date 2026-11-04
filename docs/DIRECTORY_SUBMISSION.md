@@ -119,7 +119,7 @@ README.
 ## Owner's steps
 
 1. Merge the release PR, then tag it: `git tag v1.0.0 && git push origin v1.0.0`.
-2. Optional: verify Cowork (spike S2) on Claude Desktop and update the README table.
+2. Verify Claude Desktop (chat, Cowork, Code tab) with [DESKTOP_TEST_PLAN.md](DESKTOP_TEST_PLAN.md) and update the README table.
 3. Open [claude.ai/directory/manage](https://claude.ai/directory/manage) → **Submit new** →
    **Plugin bundle**, enter the source above, and select **Validate**.
 4. Fix anything marked **Blocking** (none expected), re-validate, then fill in the remaining
